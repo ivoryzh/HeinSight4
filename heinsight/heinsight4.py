@@ -1,5 +1,7 @@
 import datetime
 import os
+import threading
+
 import torch
 import cv2
 import matplotlib.pyplot as plt
@@ -9,13 +11,13 @@ from heinsight.utils import colors
 from ultralytics import YOLO
 
 """
-2024-4-11 update:
-1. added decision making for settling
+2024-6-11:
+generic HeinSight 
 """
 
 
 class HeinSight:
-    RESIZE_VIAL = [86, 200]
+    # RESIZE_VIAL = [86, 200]
     NUM_ROWS = -1  # number of rows that the vial is split into. -1 means each individual pixel row
     VISUALIZE = True  # watch in real time, if False it will only make a video without showing it
     INCLUDE_BB = True  # show bounding boxes in output video
@@ -26,36 +28,39 @@ class HeinSight:
     PERCENTAGE = 50
     LIQUID_CONTENT = ["Homo", "Hetero"]
 
-    def __init__(self, vial_model_path, contents_model_path, solid_model_path=None, use_yolov8=True):
+    def __init__(self, vial_model_path, contents_model_path, max_phase:int=2, solid_model_path=None, use_yolov8=True):
+        self.phase_data = {}
+        self.frame = None
+        self._thread = None
+        self._running = True
         self.vial_model = torch.hub.load('ultralytics/yolov5', 'custom', path=vial_model_path)
         self.contents_model = YOLO(contents_model_path)
         self.solid_model = torch.hub.load('ultralytics/yolov5', 'custom',
                                           path=solid_model_path) if solid_model_path else None
         self.use_yolov8 = use_yolov8
-        # self.setting_yolo_parameters()
+        self.max_phase = max_phase
         self.vial_location = None
+        self.vial_size = [80, 200]
         self.content_info = None
         self.monitor_range = [0, 1]
         self.settle_monitor_range = [0, 1]
         self.color_palette = colors.register_colors([self.contents_model, self.solid_model])
         self.x_time = []
+        self.output_header = self._output_header()
         self.turbidity_2d = []
         self.average_colors = []
         self.average_turbidity = []
         self.output = []
+        self.output_dataframe = pd.DataFrame()
+
+    def _output_header(self):
+        header = ["turbidity", "color"]
+        for i in range(self.max_phase):
+            header.extend([f"volume_{i + 1}", f"turbidity_{i + 1}", f"color_{i + 1}"])
+        return header
 
     def draw_bounding_boxes(self, image, bboxes, class_names, thickness=2, text_right: bool = False):
-        """
-        Draws rectangles on the input image.
-        Parameters:
-            image (numpy.ndarray): The input image.
-            bboxes (list): A list of rectangles in the form of [(x1, y1, x2, y2), (x1, y1, x2, y2), ...].
-            class_names ():
-            thickness (int): The thickness of the rectangle edges. Default is 2.
-            text_right (bool):
-        Returns:
-            numpy.ndarray: The image with rectangles drawn on it.
-        """
+        """Draws rectangles on the input image."""
         output_image = image.copy()
         for i, rect in enumerate(bboxes):
             color = self.color_palette.get(class_names[rect[-1]])
@@ -66,19 +71,24 @@ class HeinSight:
                         color, 2)
         return output_image
 
-    def find_vial(self, frame):
+    def find_vial(self, frame, ):
         """
-        find vial in video frame
-        Args:
-            frame: video frame
-        Returns:
-            vial location: x1, y1, x2, y2
+        find vial in video frame with YOLOv5
+        :param frame:
         """
         self.vial_model.conf = 0.5
         self.vial_model.max_det = 1
         result = self.vial_model(frame)
-        # vial_box = result.pred[0].cpu().numpy()[0, :4]  # if self.vial_model else result[0].cpu().numpy()
-        return result.pred[0].cpu().numpy()
+
+        result = result.pred[0].cpu().numpy()
+        if len(result) == 0:
+            return None
+        else:
+            # vial_box = result.pred[0].cpu().numpy()[0, :4]  # if self.vial_model else result[0].cpu().numpy()
+            self.vial_location = [x.astype(np.int16) for x in result[0, : 4]]
+            self.vial_size = [int(self.vial_location[2] - self.vial_location[0]),
+                              int(self.vial_location[3] - self.vial_location[1])]
+            return result
 
     @staticmethod
     def find_liquid(pred_classes, liquid_classes, all_classes):
@@ -87,7 +97,7 @@ class HeinSight:
         :param pred_classes: [1, 2, 3]
         :param liquid_classes: ['Homo', 'Hetero']
         :param all_classes: {0: solid, 1: No solid, ....}
-        :return: index
+        :return: [index]
         """
         liquid_classes_id = [key for key, value in all_classes.items() if value in liquid_classes]
         return [index for index, c in enumerate(pred_classes) if c in liquid_classes_id]
@@ -121,87 +131,95 @@ class HeinSight:
         if update_od:
             self.content_info = self.content_detection(vial_frame)
         bboxes, liquid_boxes, title = self.content_info
-        # turbidities, color = self.calculate_average_value(seg=vial_frame, num_rows=self.NUM_ROWS, content_only=False)
-        # process liquid contents
-        phase_data, avg_turbidity, avg_color, raw_turbidity = self.calculate_value_color(seg=vial_frame,
-                                                                                         liquid_boxes=liquid_boxes)
-        self.average_colors.append(avg_color)
-        self.average_turbidity.append(avg_turbidity)
+
+        phase_data, raw_turbidity = self.calculate_value_color(seg=vial_frame, liquid_boxes=liquid_boxes)
+
         # this part gets ugly when theere is more than 1 l_bbox but for now good enough
         if self.INCLUDE_BB:
-            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, thickness=2,
-                                             text_right=True)
+            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=True)
+        self.frame = frame
         fig = self.display_frame(y_values=raw_turbidity, image=frame, title=title)
         fig.canvas.draw()
         frame_image = np.array(fig.canvas.renderer.buffer_rgba())
         frame_image = cv2.cvtColor(frame_image, cv2.COLOR_RGBA2BGR)
         # print(frame_image.shape) # this is 600x800
-        return frame_image, raw_turbidity, avg_turbidity, avg_color, phase_data
+        return frame_image, raw_turbidity, phase_data
 
-    def process_one(self, video_path, blank_image_path=None, save_directory=None, output_name=None):
-        first_frame = True
+    def start_monitoring(self, video_path,  save_directory=None, output_name=None, fps=5, res=(1920, 1080)):
+        if self._thread is None or not self._thread.is_alive():
+            self._running = True
+            self._thread = threading.Thread(target=self.run, args=(video_path, save_directory, output_name, fps, res))
+            self._thread.daemon = True
+            self._thread.start()
+            print("Background task started.")
+        else:
+            print("Background task is already running.")
+
+    def stop_monitor(self):
+        if self._thread is not None and self._thread.is_alive():
+            self._running = False
+            self._thread.join()
+            print("Background task stopped.")
+        else:
+            print("Background task is not running.")
+
+    def run(self, video_path, save_directory=None, output_name=None, fps=5,
+            res=(1920, 1080)):
+        # first_frame = True
+        realtime_cap = type(video_path) is int
         self.clear_cache()
-        prev_turbidities = None
+        # prev_turbidities = None
         # ensure proper naming
-        if not output_name:
+        if output_name is None:
             output_name = "output"
         save_directory = save_directory or './heinsight_output'
         os.makedirs(save_directory, exist_ok=True)
-        output_filename = f'{save_directory}/{output_name}'
+        output_filename = os.path.join(save_directory, output_name)
 
         video = cv2.VideoCapture(video_path)
         fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')  # Choose the appropriate codec
-        if type(video_path) is int:
-            video.set(cv2.CAP_PROP_FPS, 1)
-            video.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-            video.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-            raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, (1920, 1080))
+        if realtime_cap:
+            video.set(cv2.CAP_PROP_FPS, fps)
+            video.set(cv2.CAP_PROP_FRAME_WIDTH, res[0])
+            video.set(cv2.CAP_PROP_FRAME_HEIGHT, res[1])
+            raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
 
         fps = int(video.get(cv2.CAP_PROP_FPS))
         print(f"Capture fps: {fps}")
 
-        video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, fps, (800, 600))
+        video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, 30, (800, 600))
 
         i = 0
-        while True:
+        while self._running:
             for _ in range(self.READ_EVERY):
                 ret, frame = video.read()
-                if type(video_path) is int and ret:
+                if realtime_cap and ret:
                     raw_video_writer.write(frame)
             if not ret:
                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             if i == 0:
-                # get vial_bb for entire run
-
-                result = self.find_vial(frame=frame)
-                while len(result) == 0:
+                while True:
+                    result = self.find_vial(frame=frame)
+                    if result is not None:
+                        break
                     print("No vial found, re-detecting")
                     ret, frame = video.read()
                     if not ret:
                         break
-                    result = self.find_vial(frame=frame)
-                # cv2.imwrite("frame.jpg", frame)
-                self.vial_location = [x.astype(np.int16) for x in result[0, : 4]]
-                self.RESIZE_VIAL = [int(self.vial_location[2] - self.vial_location[0]),
-                                    int(self.vial_location[3] - self.vial_location[1])]
-                print("using actual vial frame size", self.RESIZE_VIAL)
+                # print("using actual vial frame size", self.vial_size)
 
             vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
-            vial_frame = cv2.resize(vial_frame, self.RESIZE_VIAL)
 
             # every _th iteration update
             update_od = True if not i % self.UPDATE_EVERY else False
-            # self.x_time.append(round(i * self.READ_EVERY / fps / 60, 3))
-            self.x_time.append(
-                datetime.datetime.now() if type(video_path) is int else round(i * self.READ_EVERY / fps / 60, 3))
-            frame_image, turbidities, turbidity_avg, color_avg, output_list = self.process_vial_frame(
-                vial_frame=vial_frame,
-                update_od=update_od,
-            )
-            self.output.append(output_list)
+            # self.x_time.append(datetime.datetime.now() if realtime_cap else round(i * self.READ_EVERY / fps / 60, 3))
+            self.x_time.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
+            self.phase_data = phase_data
+            self.output.append(phase_data)
 
-            self.turbidity_2d.append(turbidities)
+            self.turbidity_2d.append(_raw_turb)
             video_writer.write(frame_image)
 
             self.save_output(filename=output_filename)
@@ -211,16 +229,17 @@ class HeinSight:
             if cv2.waitKey(1) == ord('q'):
                 print("broke loop by pressing q")
                 break
-            first_frame = False
+            # first_frame = False
             i += 1
 
         # Release the video file and output video and csv
         video.release()
         video_writer.release()
-        if type(video_path) is int:
+        if realtime_cap:
             raw_video_writer.release()
         cv2.destroyAllWindows()
         print(f"Results saved to {output_filename}")
+        return self.output
 
     def display_frame(self, y_values, image, title=None):
         """
@@ -253,9 +272,9 @@ class HeinSight:
                          color="gray", alpha=0.3, label="Edge region")
         ax1.set_xlabel('Turbidity per row')
         ax1.set_position([0.47, 0.45, 0.45, 0.43])
-        realtime_tick_label = [self.x_time[0].strftime("%H:%M:%S"), self.x_time[-1].strftime("%H:%M:%S")] if type(
-            self.x_time[-1]) is not float else None
-
+        # realtime_tick_label = [self.x_time[0].strftime("%H:%M:%S"), self.x_time[-1].strftime("%H:%M:%S")] if type(
+        #     self.x_time[-1]) is not float else None
+        realtime_tick_label = None
         # bottom left - turbidity
         ax2.set_ylabel('Turbidity')
         ax2.set_xlabel('Time / min')
@@ -271,19 +290,21 @@ class HeinSight:
         ax3.set_position([0.56, 0.12, 0.35, 0.27])
         return fig
 
-    @staticmethod
-    def calculate_value_color(seg, liquid_boxes):
+    def calculate_value_color(self, seg, liquid_boxes):
         raw_value = []
         height, width, _ = seg.shape
-        output = []
         hsv_image = cv2.cvtColor(seg, cv2.COLOR_RGB2HSV)
-        average_color = np.mean(hsv_image[:, :, 2])
+        average_color = np.mean(hsv_image[:, :, 0])
+        average_value = np.mean(hsv_image[:, :, 2])
+        self.average_colors.append(average_color)
+        self.average_turbidity.append(average_value)
+        output = dict(time=self.x_time[-1], color=average_color, turbidity=average_value)
         for i in range(height):
             # Calculate the starting and ending indices for the row
             row = hsv_image[i, :]
             average_value = np.mean(row[:, 2])
             raw_value.append(average_value)
-        for bbox in liquid_boxes:
+        for index, bbox in enumerate(liquid_boxes):
             # print(bbox)
             _, liquid_top, _, liquid_bottom = bbox
             start_index = int(liquid_top)
@@ -291,43 +312,28 @@ class HeinSight:
             row = hsv_image[start_index:end_index, :]
             value = np.mean(row[:, :, 2])
             color = np.mean(row[:, :, 0])
-            output_per_box = dict(volume=(liquid_bottom - liquid_top) / height, color=color, turbidity=value)
-            output.append(output_per_box)
-        return output, average_value, average_color, raw_value
+            output[f'volume_{index + 1}'] = (liquid_bottom - liquid_top) / height
+            output[f'color_{index + 1}'] = color
+            output[f'turbidity_{index + 1}'] = value
+            # output.append(output_per_box)
+        return output, raw_value
 
     def save_output(self, filename):
-        max_len = max(len(sublist) for sublist in self.output)
-        average_data = pd.DataFrame({
-            "Time": self.x_time,
-            "color": self.average_colors,
-            "turbidity": self.average_turbidity,
-        })
-        # Create CSV headers based on the maximum length
-        headers = ["Time", "Average Color", "Average Turbidity"]
-        rows = []
-        for i in range(max_len):
-            headers.extend([f"volume_{i + 1}", f"turbidity_{i + 1}", f"color_{i + 1}"])
-        for sublist in self.output:
-            row = {}
-            for i, item in enumerate(sublist):
-                for key, value in item.items():
-                    row[f"{key}_{i + 1}"] = value
-            rows.append(row)
-        phase_data = pd.DataFrame(rows)
-        phase_data = phase_data.fillna(0)
-        combined_df = pd.concat([average_data, phase_data], axis=1)
-        combined_df.to_csv(f"{filename}_per_phase.csv", index=False)
+        self.output_dataframe = pd.DataFrame(self.output)
+        self.output_dataframe = self.output_dataframe.fillna(0)
+        # combined_df = pd.concat([average_data, phase_data], axis=1)
+        self.output_dataframe.to_csv(f"{filename}_per_phase.csv", index=False)
 
         # saving raw turbidity data
         turbidity_2d = np.array(self.turbidity_2d)
         turbidity_2d.T
         np.savetxt(filename + "_raw.csv", turbidity_2d, delimiter=',', fmt='%d')
 
-    @staticmethod
-    def crop_rectangle(image, vial_location):
+    def crop_rectangle(self, image, vial_location):
         vial_x1, vial_y1, vial_x2, vial_y2 = vial_location
         cropped_image = image[vial_y1:vial_y2, vial_x1:vial_x2]
-        return cropped_image
+        # cv2.resize(cropped_image, self.vial_size)
+        return cv2.resize(cropped_image, self.vial_size)
 
     def clear_cache(self):
         """
@@ -345,5 +351,5 @@ class HeinSight:
 if __name__ == "__main__":
     heinsight = HeinSight(vial_model_path=r"models/labpic.pt",
                           contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt", )
-
-    heinsight.process_one(r"C:\Users\User\PycharmProjects\heinsight4.0\solid-liq-mixing.mp4")
+    output = heinsight.run(r"C:\Users\User\PycharmProjects\heinsight4.0\solid-liq-mixing.mp4")
+    heinsight.run(r"C:\Users\User\PycharmProjects\heinsight4.0\solid-liq-mixing.mp4")
