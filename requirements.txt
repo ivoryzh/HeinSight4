@@ -1,5 +1,1 @@
-flask-login
-bcrypt
-flask-socketio
-sqlalchemy-utils
-flask-sqlalchemy
+Ultralytics
