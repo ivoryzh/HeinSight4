@@ -217,18 +217,22 @@ class HeinSight:
             self.x_time.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
             self.phase_data = phase_data
-            self.output.append(phase_data)
 
             self.turbidity_2d.append(_raw_turb)
             video_writer.write(frame_image)
-
-            self.save_output(filename=output_filename)
-
             if self.VISUALIZE:
                 cv2.imshow("Video", frame_image)
-            if cv2.waitKey(1) == ord('q'):
+            key = cv2.waitKey(1) & 0xFF  # Get key pressed
+
+            if key == ord('q'):
                 print("broke loop by pressing q")
                 break
+            phase_data["key pressed"] = '' if key == 255 else chr(key)
+            if key != 255:  # 255 is returned if no key is pressed
+                print(f"Key pressed: {chr(key)}")
+            self.output.append(phase_data)
+            self.save_output(filename=output_filename)
+
             # first_frame = False
             i += 1
 
