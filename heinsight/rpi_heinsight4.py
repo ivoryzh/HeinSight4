@@ -75,6 +75,7 @@ class HeinSight:
         self.average_turbidity = []
         self.output = []
         self.output_dataframe = pd.DataFrame()
+        self.output_frame = None
 
     def _output_header(self):
         """
@@ -174,7 +175,7 @@ class HeinSight:
         if self.INCLUDE_BB:
             frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=True)
         self.frame = frame
-        fig = self.display_frame(turbidity=[turbidity_per_row, turbidity_per_col], image=frame, title=title)
+        fig = self.display_frame(turbidity=(turbidity_per_row, turbidity_per_col), image=frame, title=title)
         fig.canvas.draw()
         frame_image = np.array(fig.canvas.renderer.buffer_rgba())
         frame_image = cv2.cvtColor(frame_image, cv2.COLOR_RGBA2BGR)
@@ -187,6 +188,7 @@ class HeinSight:
         heinsight GUI function: starting monitoring, same param as run()
         :return: None
         """
+        self.VISUALIZE = False
         if self._thread is None or not self._thread.is_alive():
             self._running = True
             self._thread = threading.Thread(target=self.run, args=(video_path, save_directory, output_name, fps, res))
@@ -207,6 +209,24 @@ class HeinSight:
             print("Background task stopped.")
         else:
             print("Background task is not running.")
+
+    async def generate_frame(self):
+        while True:
+            try:
+                frame = self.output_frame
+                if frame is None:
+                    break
+
+                # Encode frame as JPEG
+                _, buffer = cv2.imencode('.jpg', frame)
+                frame_bytes = buffer.tobytes()
+
+                # Yield frame bytes with correct header
+                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
+                await asyncio.sleep(0.01)  # Small delay to avoid high CPU usage
+            except (BrokenPipeError, ConnectionResetError) as e:
+                print(f"Client disconnected: {e}")
+                break  # Exit the loop when the client disconnects
 
     def display_frame(self, turbidity, image, title=None):
         """
@@ -441,7 +461,7 @@ class HeinSight:
                 current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 self.x_time.append(current_time if realtime_cap else round(i * self.READ_EVERY / fps / 60, 3))
                 frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
-
+                self.output_frame = frame_image
                 # 5. Optionally display processed frames in real-time.
                 if self.VISUALIZE:
                     cv2.imshow("Live Camera View", frame_image)
