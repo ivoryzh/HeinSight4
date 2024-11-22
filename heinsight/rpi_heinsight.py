@@ -16,11 +16,10 @@ from heinsight.utils import colors
 
 """
 2024-11 HeinSight: class for vial monitoring and content detection using YOLO models.
-update:
-Python==3.9 compatible update for Raspberry Pi 5
 Changelog:
 1. Compatibility with Pi Camera (Picamera2).
 2. Fixed video saving functionality.
+3. Compatibility with FastAPI streaming
 """
 
 
