@@ -2,7 +2,7 @@ import asyncio
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
-from rpi_heinsight4 import HeinSight
+from heinsight import HeinSight
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -13,11 +13,12 @@ class FrameData(BaseModel):
     hsdata: list
 
 FRAME_RATE = 5
-heinsight = HeinSight(vial_model_path="/home/heinsight/heinsight2.5/heinsight/models/labpic.pt",
-                      contents_model_path="/home/heinsight/heinsight2.5/heinsight/models/best_train5_yolov8_ez_20240402.pt",
-                      pi_cam=True)
+heinsight = HeinSight(vial_model_path="models/labpic.pt",
+                      contents_model_path="models/best_train5_yolov8_ez_20240402.pt")
+source = 0
 
-is_monitoring = False  
+
+is_monitoring = False
 
 @app.on_event("startup")
 async def startup():
@@ -33,9 +34,9 @@ async def shutdown():
 @app.get("/start")
 async def start_monitoring():
     """Endpoint to start monitoring."""
-    global heinsight, is_monitoring
+    global heinsight, is_monitoring, source
     if not is_monitoring:
-        heinsight.start_monitoring("picam", output_name="steam_test")
+        heinsight.start_monitoring(r"C:\Users\User\Downloads\output_raw_116-4min-originalvideolength.mp4", output_name="steam_test")
         is_monitoring = True
         return JSONResponse(content={"message": "Monitoring started."})
     else:

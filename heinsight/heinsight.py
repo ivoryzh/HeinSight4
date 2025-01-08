@@ -18,11 +18,11 @@ from ultralytics import YOLO
 from ultralytics.data.utils import IMG_FORMATS
 
 """
-2024-11 HeinSight: class for vial monitoring and content detection using YOLO models.
-Changelog:
-1. Compatibility with Pi Camera (Picamera2).
-2. Fixed video saving functionality.
-3. Compatibility with FastAPI streaming
+2025-01-08:
+generic HeinSight 
+1. add rpi compatibility
+2. add stream
+3. clean up
 """
 
 
@@ -31,7 +31,7 @@ class HeinSight:
     NUM_ROWS = -1  # number of rows that the vial is split into. -1 means each individual pixel row
     VISUALIZE = True  # watch in real time, if False it will only make a video without showing it
     INCLUDE_BB = True  # show bounding boxes in output video
-    READ_EVERY = 1  # only considers every 'READ_EVERY' frame -> faster rendering
+    READ_EVERY = 5  # only considers every 'READ_EVERY' frame -> faster rendering
     UPDATE_EVERY = 5  # classifies vial contents ever 'UPDATE_EVERY' considered frame
     LIQUID_CONTENT = ["Homo", "Hetero"]
 
@@ -42,7 +42,7 @@ class HeinSight:
         self.frame = None
         self._thread = None
         self._running = True
-        self.vial_model = torch.hub.load('ultralytics/yolov5', 'custom', path=vial_model_path)
+        self.vial_model = torch.hub.load('ultralytics/yolov5', 'custom', path=vial_model_path, force_reload=True)
         self.contents_model = YOLO(contents_model_path)
         self.max_phase = max_phase
         self.vial_location = None
@@ -145,20 +145,20 @@ class HeinSight:
             self.content_info = self.content_detection(vial_frame)
         bboxes, liquid_boxes, title = self.content_info
 
-        phase_data, turbidity_per_row, turbidity_per_col = self.calculate_value_color(vial_frame=vial_frame,                                                                          liquid_boxes=liquid_boxes)
+        phase_data, raw_turbidity = self.calculate_value_color(vial_frame=vial_frame, liquid_boxes=liquid_boxes)
 
         # this part gets ugly when there is more than 1 l_bbox but for now good enough
         if self.INCLUDE_BB:
             frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=True)
         # self.frame = frame
-        fig = self.display_frame(turbidity=(turbidity_per_row, turbidity_per_col), image=frame, title=title)
+        fig = self.display_frame(y_values=raw_turbidity, image=frame, title=title)
 
         fig.canvas.draw()
         frame_image = np.array(fig.canvas.renderer.buffer_rgba())
         frame_image = cv2.cvtColor(frame_image, cv2.COLOR_RGBA2BGR)
 
         # print(frame_image.shape) # this is 600x800
-        return frame_image, turbidity_per_row, phase_data
+        return frame_image, raw_turbidity, phase_data
 
     def start_monitoring(self, video_path, save_directory=None, output_name=None, fps=5, res=(1920, 1080)):
         """
@@ -205,23 +205,22 @@ class HeinSight:
                 print(f"Client disconnected: {e}")
                 break  # Exit the loop when the client disconnects
 
-    def display_frame(self, turbidity, image, title=None):
+    def display_frame(self, y_values, image, title=None):
         """
-        create the final visual frame
-        :param turbidity: Optional[tuple: (row, col) or row]
-        :param image: vial frame
-        :param title: title text on top of the vial frame
-        :return: plotted figure
+        Display the image (top-left) and its turbidity values per row (top-right)
+        turbidity over time (bottom-left) and color over time (bottom-right)
+        :param y_values: the turbidity value per row
+        :param image: vial image frame to display
+        :param title: title of the image frame
         """
-        y_val_row = turbidity
-        if type(turbidity) is tuple:
-            y_val_row, y_val_col = turbidity
 
         # create grid for different subplots
-        # liquid_top, liquid_bottom = self.monitor_range
+        liquid_top, liquid_bottom = self.monitor_range
         plt.close()
         fig, axs = plt.subplots(2, 2, figsize=(8, 6), height_ratios=[2, 1], constrained_layout=True)
         ax0, ax1, ax2, ax3 = axs.flat
+
+        # top left - vial frame and bounding boxes
         ax0.imshow(np.flipud(image), origin='lower')
         if title:
             ax0.set_title(title)
@@ -229,9 +228,9 @@ class HeinSight:
 
         # top right - Turbidity per row
         bar_width = 1
-        x_values = range(len(y_val_row))
-        ax1.barh(x_values, np.flip(y_val_row), orientation='horizontal', height=bar_width, color='green', alpha=0.5)
-        ax1.set_ylim(0, len(y_val_row))
+        x_values = range(len(y_values))
+        ax1.barh(x_values, np.flip(y_values), orientation='horizontal', height=bar_width, color='green', alpha=0.5)
+        ax1.set_ylim(0, len(y_values))
         ax1.set_xlim(0, 255)
         ax1.xaxis.tick_top()
         ax1.xaxis.set_label_position('top')
@@ -247,18 +246,11 @@ class HeinSight:
         ax2.set_xticks([self.x_time[0], self.x_time[-1]], realtime_tick_label)
         ax2.set_position([0.12, 0.12, 0.35, 0.27])
 
-        # bottom right - color - or turbidity per column
-
-        # ax3.set_ylabel('Color')
-        # ax3.set_xlabel('Time / min')
-        # ax3.plot(self.x_time, self.average_colors)
-        # ax3.set_xticks([self.x_time[0], self.x_time[-1]], realtime_tick_label)
-
-        ax3.set_ylabel('Turbidity')
-        ax3.set_xlabel('Turbidity per column')
-        ax3.bar(range(len(y_val_col)), y_val_col, color='blue', alpha=0.5)
-        ax3.set_ylim(0, 255)
-        ax3.set_xlim(0, len(y_val_col))
+        # bottom right - color
+        ax3.set_ylabel('Color (hue)')
+        ax3.set_xlabel('Time / min')
+        ax3.plot(self.x_time, self.average_colors)
+        ax3.set_xticks([self.x_time[0], self.x_time[-1]], realtime_tick_label)
         ax3.set_position([0.56, 0.12, 0.35, 0.27])
         return fig
 
@@ -270,7 +262,6 @@ class HeinSight:
         :return: the output dict and raw turbidity per row
         """
         raw_value = []
-        col_value = []
         height, width, _ = vial_frame.shape
         hsv_image = cv2.cvtColor(vial_frame, cv2.COLOR_RGB2HSV)
         average_color = np.mean(hsv_image[:, :, 0])
@@ -283,11 +274,6 @@ class HeinSight:
             row = hsv_image[i, :]
             average_value = np.mean(row[:, 2])
             raw_value.append(average_value)
-        for i in range(width):
-            # calculate indices for columns
-            col = hsv_image[:, i]
-            average_value = np.mean(col[:, 2])
-            col_value.append(average_value)
         for index, bbox in enumerate(liquid_boxes):
             # print(bbox)
             _, liquid_top, _, liquid_bottom = bbox
@@ -300,7 +286,7 @@ class HeinSight:
             output[f'color_{index + 1}'] = color
             output[f'turbidity_{index + 1}'] = value
             # output.append(output_per_box)
-        return output, raw_value, col_value
+        return output, raw_value
 
     def save_output(self, filename):
         """
@@ -410,10 +396,10 @@ class HeinSight:
                 # print(f"Capture fps: {fps}")
 
             # 2. Setup video writers for saving outputs
-            fourcc = cv2.VideoWriter_fourcc(*'XVID')
-            video_writer = cv2.VideoWriter(output_filename + ".avi", fourcc, 30, (800, 600))
+            fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')  # Choose the appropriate codec
+            video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, 30, (800, 600))
             if realtime_cap:
-                raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.avi", fourcc, 30, res)
+                raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
 
             i = 0
             try:
@@ -439,7 +425,7 @@ class HeinSight:
                             result = self.find_vial(frame=frame)
                             if result is not None:
                                 break
-                            # print("No vial found, re-detecting")
+                            print("No vial found, re-detecting")
                             time.sleep(1)
                             if source == "picam":
                                 frame = camera.capture_array()
@@ -490,7 +476,7 @@ class HeinSight:
                     raw_video_writer.release()
                 video_writer.release()  # Ensure video is saved
                 cv2.destroyAllWindows()
-                # print(f"Results saved to {output_filename}")
+                print(f"Results saved to {output_filename}")
                 return self.output
 
 
@@ -524,12 +510,9 @@ class HeinSight:
 
 
 if __name__ == "__main__":
-    heinsight = HeinSight(vial_model_path="/home/heinsight/heinsight2.5/heinsight/models/labpic.pt",
-                          contents_model_path="/home/heinsight/heinsight2.5/heinsight/models/best_train5_yolov8_ez_20240402.pt")
-    heinsight.run(0, output_name="output_test")
-
-    # # for picamera
-    # heinsight.run("picam", res=(2592, 1944))
-
-    # # local videos
-    # output = heinsight.run("/home/heinsight/heinsight2.5/heinsight/models/solid-liq-mixing.mp4")
+    heinsight = HeinSight(vial_model_path=r"models/labpic.pt",
+                          contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt", )
+    # output = heinsight.run(r"C:\Users\User\PycharmProjects\heinsight4.0\solid-liq-mixing.mp4")
+    heinsight.run(r"C:\Users\User\PycharmProjects\heinsight4.0\heinsight\img.png")
+    # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_28_09_Pro.mp4")
+    # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_34_52_Pro.mp4")
