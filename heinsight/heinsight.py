@@ -121,7 +121,7 @@ class HeinSight:
         :param vial_frame: (np.ndarray) Cropped vial frame.
         :return tuple: Bounding boxes, liquid boxes, and detected class titles.
         """
-        result = self.contents_model(vial_frame)
+        result = self.contents_model(vial_frame, max_det=4, agnostic_nms=True, conf= 0.25)
         bboxes = result[0].boxes.data.cpu().numpy()
 
         pred_classes = bboxes[:, 5]  # np.array: [1, 3 ,4]
