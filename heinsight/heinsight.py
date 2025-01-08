@@ -10,6 +10,7 @@ import threading
 from itertools import chain
 from random import randint
 import torch
+from torchvision.ops import box_iou
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -115,14 +116,71 @@ class HeinSight:
         liquid_classes_id = [key for key, value in all_classes.items() if value in liquid_classes]
         return [index for index, c in enumerate(pred_classes) if c in liquid_classes_id]
 
+
+    # NMS function for post procesing suppresion
+
+    def custom_nms(bboxes, iou_thresholds, class_rules, conf_threshold=0.25):
+        """
+        Apply custom NMS based on class overlap rules.
+
+        :param bboxes: Detected bounding boxes (numpy array: [x1, y1, x2, y2, conf, class_id]).
+        :param iou_thresholds: Dictionary of IoU thresholds for class pairs.
+        :param class_rules: Rules for suppressing classes when overlaps occur.
+        :param conf_threshold: Minimum confidence to consider a bounding box.
+        :return: Filtered bounding boxes.
+        """
+        keep_indices = []
+        bboxes = torch.tensor(bboxes)
+        classes = bboxes[:, 5].int()
+        confidences = bboxes[:, 4]
+
+        for i, bbox in enumerate(bboxes):
+            if confidences[i] < conf_threshold:
+                continue  # Skip low-confidence boxes
+
+            suppress = False
+            for j, other_bbox in enumerate(bboxes):
+                if i == j or confidences[j] < conf_threshold:
+                    continue
+
+                iou = box_iou(bbox[:4].unsqueeze(0), other_bbox[:4].unsqueeze(0)).item()
+                if iou > iou_thresholds.get((classes[i].item(), classes[j].item()), 0):
+                    rule = class_rules.get((classes[i].item(), classes[j].item()))
+                    if rule == "suppress_lower":
+                        suppress = confidences[i] < confidences[j]
+                    elif rule == "suppress_specific":
+                        suppress = True if classes[i].item() > classes[j].item() else False
+
+                if suppress:
+                    break
+
+            if not suppress:
+                keep_indices.append(i)
+
+        return bboxes[keep_indices].numpy()
+
+    class_rules = {
+        (0, 1): "suppress_specific",  # Suppress class 1 if it overlaps with class 0
+        (1, 2): "suppress_lower",  # Suppress lower confidence when class 1 overlaps with class 2
+        (4, 2): "suppress_lower",  # Suppress lower confidence when class 4 overlaps with class 2
+    }
+
+    iou_thresholds = {
+        (1, 2): 0.4,
+        (4, 2): 0.4,
+    }
+
     def content_detection(self, vial_frame):
         """
         Detect content in a vial frame.
         :param vial_frame: (np.ndarray) Cropped vial frame.
         :return tuple: Bounding boxes, liquid boxes, and detected class titles.
         """
-        result = self.contents_model(vial_frame, max_det=4, agnostic_nms=True, conf= 0.25, iou=0.25)
+        result = self.contents_model(vial_frame, max_det=4, agnostic_nms=True, conf=0.25, iou=0.25)
         bboxes = result[0].boxes.data.cpu().numpy()
+
+        # Apply custom NMS
+        bboxes = custom_nms(bboxes, iou_thresholds, class_rules)
 
         pred_classes = bboxes[:, 5]  # np.array: [1, 3 ,4]
         title = " ".join([self.contents_model.names[x] for x in pred_classes])
