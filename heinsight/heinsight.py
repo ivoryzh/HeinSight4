@@ -92,7 +92,7 @@ class HeinSight:
         self.vial_model.conf = 0.5
         self.vial_model.max_det = 1
         result = self.vial_model(frame)
-        result = result.pred[0].cpu().numpy()
+        result = result[0].boxes.data.cpu().numpy()
         if len(result) == 0:
             return None
         else:
@@ -119,7 +119,7 @@ class HeinSight:
 
     # NMS function for post procesing suppresion
 
-    def custom_nms(bboxes, iou_thresholds, class_rules, conf_threshold=0.25):
+    def custom_nms(self, bboxes, iou_thresholds, class_rules, conf_threshold=0.25):
         """
         Apply custom NMS based on class overlap rules.
 
@@ -180,7 +180,7 @@ class HeinSight:
         bboxes = result[0].boxes.data.cpu().numpy()
 
         # Apply custom NMS
-        bboxes = custom_nms(bboxes, iou_thresholds, class_rules)
+        bboxes = self.custom_nms(bboxes, self.iou_thresholds, self.class_rules)
 
         pred_classes = bboxes[:, 5]  # np.array: [1, 3 ,4]
         title = " ".join([self.contents_model.names[x] for x in pred_classes])
