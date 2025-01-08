@@ -14,30 +14,56 @@ class FrameData(BaseModel):
 
 FRAME_RATE = 5
 heinsight = HeinSight(vial_model_path="/home/heinsight/heinsight2.5/heinsight/models/labpic.pt",
-                      contents_model_path="/home/heinsight/heinsight2.5/heinsight/models/best_train5_yolov8_ez_20240402.pt")
+                      contents_model_path="/home/heinsight/heinsight2.5/heinsight/models/best_train5_yolov8_ez_20240402.pt",
+                      pi_cam=True)
 
+is_monitoring = False  
 
 @app.on_event("startup")
 async def startup():
-    global heinsight
-    heinsight.start_monitoring("picam", output_name="steam_test")
-    print("Camera started.")
+    print("App started.")
 
 @app.on_event("shutdown")
 async def shutdown():
     global heinsight
-    heinsight.stop_monitor()
-    print("Camera stopped.")
+    if is_monitoring:
+        heinsight.stop_monitor()
+        print("Camera stopped.")
+
+@app.get("/start")
+async def start_monitoring():
+    """Endpoint to start monitoring."""
+    global heinsight, is_monitoring
+    if not is_monitoring:
+        heinsight.start_monitoring("picam", output_name="steam_test")
+        is_monitoring = True
+        return JSONResponse(content={"message": "Monitoring started."})
+    else:
+        return JSONResponse(content={"message": "Monitoring is already running."}, status_code=400)
+
+@app.get("/stop")
+async def stop_monitoring():
+    """Endpoint to stop monitoring."""
+    global heinsight, is_monitoring
+    if is_monitoring:
+        heinsight.stop_monitor()
+        is_monitoring = False
+        return JSONResponse(content={"message": "Monitoring stopped."})
+    else:
+        return JSONResponse(content={"message": "Monitoring is not running."}, status_code=400)
 
 @app.get("/frame")
 async def get_frame():
     """Endpoint to stream video frames."""
+    if not is_monitoring:
+        return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
     await asyncio.sleep(1 / FRAME_RATE)
     return StreamingResponse(heinsight.generate_frame(), media_type='multipart/x-mixed-replace; boundary=frame')
 
 @app.get("/data")
 async def get_data():
     """Endpoint to return additional data."""
-    # data = heinsight.output
+    if not is_monitoring:
+        return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
     frame_data = FrameData(hsdata=heinsight.output)
     return JSONResponse(content=frame_data.dict())
