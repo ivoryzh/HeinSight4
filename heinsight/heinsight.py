@@ -42,7 +42,7 @@ class HeinSight:
         self.frame = None
         self._thread = None
         self._running = True
-        self.vial_model = torch.hub.load('ultralytics/yolov5', 'custom', path=vial_model_path, force_reload=True)
+        self.vial_model = YOLO(vial_model_path)
         self.contents_model = YOLO(contents_model_path)
         self.max_phase = max_phase
         self.vial_location = None
@@ -510,9 +510,9 @@ class HeinSight:
 
 
 if __name__ == "__main__":
-    heinsight = HeinSight(vial_model_path=r"models/labpic.pt",
-                          contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt", )
+    heinsight = HeinSight(vial_model_path=r"C:\Users\ramae\Documents\MANUSC~1\2024_H~2.0\data\ROBOT_~1\SOLUBI~1\OLD_OM~1\2024-0~1\2024-0~1\EXPERI~1\EXP1-R~3\OUTPUT~1.MP4",
+                          contents_model_path=r"C:\Users\ramae\Documents\MANUSC~1\2024_H~2.0\data\ROBOT_~1\SOLUBI~1\OLD_OM~1\2024-0~1\2024-0~1\EXPERI~1\EXP1-R~3\OUTPUT~1.MP4", )
     # output = heinsight.run(r"C:\Users\User\PycharmProjects\heinsight4.0\solid-liq-mixing.mp4")
-    heinsight.run(r"C:\Users\User\PycharmProjects\heinsight4.0\heinsight\img.png")
+    heinsight.run(r"C:\Users\ramae\Downloads\2024-02-06RE-MSC-048(settle).mp4")
     # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_28_09_Pro.mp4")
-    # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_34_52_Pro.mp4")
+
