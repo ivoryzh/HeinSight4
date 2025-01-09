@@ -27,7 +27,6 @@ generic HeinSight
 """
 
 
-
 class HeinSight:
     NUM_ROWS = -1  # number of rows that the vial is split into. -1 means each individual pixel row
     VISUALIZE = True  # watch in real time, if False it will only make a video without showing it
@@ -35,6 +34,7 @@ class HeinSight:
     READ_EVERY = 5  # only considers every 'READ_EVERY' frame -> faster rendering
     UPDATE_EVERY = 5  # classifies vial contents ever 'UPDATE_EVERY' considered frame
     LIQUID_CONTENT = ["Homo", "Hetero"]
+    CAP_RATIO = 0.3     # this is the cap ratio of a HPLC vial
 
     def __init__(self, vial_model_path, contents_model_path, max_phase: int = 2):
         """
@@ -71,16 +71,16 @@ class HeinSight:
             header.extend([f"volume_{i + 1}", f"turbidity_{i + 1}", f"color_{i + 1}"])
         return header
 
-    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=2, text_right: bool = False):
+    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=3, text_right: bool = False):
         """Draws rectangles on the input image."""
         output_image = image.copy()
         for i, rect in enumerate(bboxes):
             color = self.color_palette.get(class_names[rect[-1]])
             x1, y1, x2, y2 = [int(x) for x in rect[:4]]
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
-            text_location = (int((x2 - x1) * 0.7) + x1 if text_right else x1, y1 + 15)
+            text_location = (int((x2 - x1) * 0.6) + x1 if text_right else x1, y1 + 15)
             cv2.putText(output_image, class_names[rect[-1]], text_location, cv2.FONT_HERSHEY_SIMPLEX, 2,
-                        color, 2)
+                        color, thickness)
         return output_image
 
     def find_vial(self, frame, ):
@@ -100,7 +100,7 @@ class HeinSight:
             self.vial_location = [x.astype(np.int16) for x in result[0, : 4]]
             self.vial_size = [
                 int(self.vial_location[2] - self.vial_location[0]),
-                int(self.vial_location[3] - self.vial_location[1])
+                int((self.vial_location[3] - self.vial_location[1]) * (1 - self.CAP_RATIO))
             ]
         return result
 
@@ -207,7 +207,8 @@ class HeinSight:
 
         # this part gets ugly when there is more than 1 l_bbox but for now good enough
         if self.INCLUDE_BB:
-            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=True)
+            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=True,
+                                             thickness=3)
         # self.frame = frame
         fig = self.display_frame(y_values=raw_turbidity, image=frame, title=title)
 
@@ -370,6 +371,7 @@ class HeinSight:
         :return: cropped and resized vial frame
         """
         vial_x1, vial_y1, vial_x2, vial_y2 = vial_location
+        vial_y1 = int(self.CAP_RATIO * (vial_y2 - vial_y1)) + vial_y1
         cropped_image = image[vial_y1:vial_y2, vial_x1:vial_x2]
         # cv2.resize(cropped_image, self.vial_size)
         return cv2.resize(cropped_image, self.vial_size)
@@ -460,83 +462,77 @@ class HeinSight:
                 raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
 
             i = 0
-            try:
-                while self._running:
-                    # Capture and process frames, skip frames if not READ_EVERY = 1
-                    for _ in range(self.READ_EVERY):
+            # try:
+            while self._running:
+                # Capture and process frames, skip frames if not READ_EVERY = 1
+                for _ in range(self.READ_EVERY):
+                    if source == "picam":
+                        frame = camera.capture_array()
+                        if frame is not None:
+                            frame = frame[:, :, :3]  # Remove any unnecessary channels
+                        else:
+                            break
+                    else:
+                        ret, frame = video.read()
+                        if not ret:
+                            break
+                    if realtime_cap:
+                        raw_video_writer.write(frame)
+                # 3. Detect the vial in the first frame or as needed.
+                if i == 0:
+                    while True:
+                        result = self.find_vial(frame=frame)
+                        if result is not None:
+                            break
+                        print("No vial found, re-detecting")
+                        time.sleep(1)
                         if source == "picam":
                             frame = camera.capture_array()
                             if frame is not None:
                                 frame = frame[:, :, :3]  # Remove any unnecessary channels
-                            else:
-                                break
                         else:
                             ret, frame = video.read()
                             if not ret:
                                 break
-                        if realtime_cap:
-                            raw_video_writer.write(frame)
-
-                    # 3. Detect the vial in the first frame or as needed.
-                    if i == 0:
-                        while True:
-                            result = self.find_vial(frame=frame)
-                            if result is not None:
-                                break
-                            print("No vial found, re-detecting")
-                            time.sleep(1)
-                            if source == "picam":
-                                frame = camera.capture_array()
-                                if frame is not None:
-                                    frame = frame[:, :, :3]  # Remove any unnecessary channels
-                            else:
-                                ret, frame = video.read()
-                                if not ret:
-                                    break
-
-                    # 4. Process each frame
-                    vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
-                    update_od = True if not i % self.UPDATE_EVERY else False    # every _th iteration update
-                    current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    self.x_time.append(current_time if realtime_cap else round(i * self.READ_EVERY / fps / 60, 3))
-                    frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
-                    self.output_frame = frame_image
-
-                    # 5. Optionally display processed frames in real-time.
-                    if self.VISUALIZE:
-                        cv2.imshow("Video", frame_image)
-                    key = cv2.waitKey(1) & 0xFF  # Get key pressed
-
-                    if key == ord('q'):
-                        self.stop_monitor()
-                        print("broke loop by pressing q")
-                        break
-                    phase_data["key pressed"] = '' if key == 255 else chr(key)
-                    if key != 255:  # 255 is returned if no key is pressed
-                        print(f"Key pressed: {chr(key)}")
-
-                    # 6. Save the output data
-                    # Save the processed frame to video file
-                    video_writer.write(frame_image)
-                    self.output.append(phase_data)
-                    self.save_output(filename=output_filename)
-                    i += 1
+                # 4. Process each frame
+                vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
+                update_od = True if not i % self.UPDATE_EVERY else False  # every _th iteration update
+                current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                self.x_time.append(current_time if realtime_cap else round(i * self.READ_EVERY / fps / 60, 3))
+                frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
+                self.output_frame = frame_image
+                # 5. Optionally display processed frames in real-time.
+                if self.VISUALIZE:
+                    cv2.imshow("Video", frame_image)
+                key = cv2.waitKey(1) & 0xFF  # Get key pressed
+                if key == ord('q'):
+                    self.stop_monitor()
+                    print("broke loop by pressing q")
+                    break
+                phase_data["key pressed"] = '' if key == 255 else chr(key)
+                if key != 255:  # 255 is returned if no key is pressed
+                    print(f"Key pressed: {chr(key)}")
+                # 6. Save the output data
+                # Save the processed frame to video file
+                video_writer.write(frame_image)
+                self.output.append(phase_data)
+                self.save_output(filename=output_filename)
+                i += 1
 
             # 7. Handle cleanup and resource release on completion or interruption.
-            except KeyboardInterrupt:
-                print("Monitoring stopped manually.")
-            finally:
-                if source == "picam":
-                    camera.stop()
-                else:
-                    video.release()
-                if realtime_cap:
-                    raw_video_writer.release()
-                video_writer.release()  # Ensure video is saved
-                cv2.destroyAllWindows()
-                print(f"Results saved to {output_filename}")
-                return self.output
-
+            # except KeyboardInterrupt:
+            #     print("Monitoring stopped manually.")
+            # finally:
+            if source == "picam":
+                camera.stop()
+            else:
+                video.release()
+            if realtime_cap:
+                raw_video_writer.release()
+            video_writer.release()  # Ensure video is saved
+            cv2.destroyAllWindows()
+            print(f"Results saved to {output_filename}")
+            return self.output
 
     @staticmethod
     def _register_colors(model_list):
@@ -544,33 +540,25 @@ class HeinSight:
         register default colors for models
         :param model_list: YOLO models list
         """
-        color_palette = [
-            (255, 0, 0),  # Red
-            (0, 255, 0),  # Green
-            (0, 0, 255),  # Blue
-            (255, 255, 0),  # Yellow
-            (255, 165, 0),  # Orange
-            (128, 0, 128),  # Purple
-            (0, 128, 128),  # Teal
-            (0, 255, 255),  # Cyan
-            (128, 128, 0),  # Olive
-        ]
-        name_color_dict = {}
-
+        name_color_dict = {
+            "Empty": (160, 82, 45),  # Brown
+            "Residue": (255, 165, 0),  # Orange
+            "Hetero": (255, 0, 255),  # purple
+            "Homo": (255, 0, 0),  # Red
+            "Solid": (0, 0, 255),  # Blue
+        }
         names = [model.names.values() for model in model_list if model is not None]
         names = set(chain.from_iterable(names))
-        if len(names) > len(color_palette):
-            color_palette.extend(
-                [(randint(0, 255), randint(0, 255), randint(0, 255)) for _ in range(len(names) - len(color_palette))])
         for index, name in enumerate(names):
-            name_color_dict[name] = color_palette[index]
+            if name not in name_color_dict.keys():
+                name_color_dict[name] = (randint(0, 255), randint(0, 255), randint(0, 255))
         return name_color_dict
 
 
 if __name__ == "__main__":
-    heinsight = HeinSight(vial_model_path=r"C:\Users\ramae\Documents\MANUSC~1\2024_H~2.0\data\ROBOT_~1\SOLUBI~1\OLD_OM~1\2024-0~1\2024-0~1\EXPERI~1\EXP1-R~3\OUTPUT~1.MP4",
-                          contents_model_path=r"C:\Users\ramae\Documents\MANUSC~1\2024_H~2.0\data\ROBOT_~1\SOLUBI~1\OLD_OM~1\2024-0~1\2024-0~1\EXPERI~1\EXP1-R~3\OUTPUT~1.MP4", )
-    # output = heinsight.run(r"C:\Users\User\PycharmProjects\heinsight4.0\solid-liq-mixing.mp4")
-    heinsight.run(r"C:\Users\ramae\Downloads\2024-02-06RE-MSC-048(settle).mp4")
+    heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
+                          contents_model_path=r"models/best_content_20250108_yolov8s.pt", )
+    output = heinsight.run(r"../examples/demo.png")
+    # heinsight.run("C:\Users\User\Downloads\demo.png")
     # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_28_09_Pro.mp4")
 
