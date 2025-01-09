@@ -73,6 +73,7 @@ class HeinSight:
 
     def draw_bounding_boxes(self, image, bboxes, class_names, thickness=3, text_right: bool = False, margin: int = 10):
         """Draws rectangles on the input image."""
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         output_image = image.copy()
         for i, rect in enumerate(bboxes):
             class_name = class_names[rect[-1]]
@@ -429,7 +430,7 @@ class HeinSight:
         image_mode = type(source) is str and source.split(".")[-1] in IMG_FORMATS
         if image_mode:
             frame = cv2.imread(source)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = self.find_vial(frame=frame)
             if result is not None:
                 vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
