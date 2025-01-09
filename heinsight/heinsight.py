@@ -34,13 +34,13 @@ class HeinSight:
     READ_EVERY = 5  # only considers every 'READ_EVERY' frame -> faster rendering
     UPDATE_EVERY = 5  # classifies vial contents ever 'UPDATE_EVERY' considered frame
     LIQUID_CONTENT = ["Homo", "Hetero"]
-    CAP_RATIO = 0.3     # this is the cap ratio of a HPLC vial
+    CAP_RATIO = 0.3  # this is the cap ratio of a HPLC vial
 
     def __init__(self, vial_model_path, contents_model_path, max_phase: int = 2):
         """
         Initialize the HeinSight system.
         """
-        self.frame = None
+        # self.frame = None
         self._thread = None
         self._running = True
         self.vial_model = YOLO(vial_model_path)
@@ -176,7 +176,7 @@ class HeinSight:
         :param vial_frame: (np.ndarray) Cropped vial frame.
         :return tuple: Bounding boxes, liquid boxes, and detected class titles.
         """
-        result = self.contents_model(vial_frame, max_det=4, agnostic_nms=True, conf=0.25, iou=0.25)
+        result = self.contents_model(vial_frame, max_det=4, agnostic_nms=False, conf=0.25, iou=0.25)
         bboxes = result[0].boxes.data.cpu().numpy()
 
         # Apply custom NMS
@@ -272,9 +272,7 @@ class HeinSight:
         :param image: vial image frame to display
         :param title: title of the image frame
         """
-
         # create grid for different subplots
-        liquid_top, liquid_bottom = self.monitor_range
         plt.close()
         fig, axs = plt.subplots(2, 2, figsize=(8, 6), height_ratios=[2, 1], constrained_layout=True)
         ax0, ax1, ax2, ax3 = axs.flat
@@ -393,8 +391,11 @@ class HeinSight:
         """
         Main function to perform vial monitoring. Captures video frames from a camera or video file,
         Workflow:
-        1. Initialize video capture (Pi Camera, webcam, or file).
-        2. Optionally initialize video writers for saving raw frames.
+        Image analysis mode:
+        1. Load image 2. Detect the vial 3. Detect content 4 Save output frame as image.
+        Video analysis mode:
+        1. Initialize video capture (Pi Camera, webcam, or video/image file).
+        2. Initialize output video write and optionally initialize video writers for saving raw frames.
         3. Detect the vial in the first frame or as needed.
         4. Process each frame:
             - Crop the vial area.
@@ -461,6 +462,7 @@ class HeinSight:
             if realtime_cap:
                 raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
 
+            # video capturing and analysis
             i = 0
             # try:
             while self._running:
@@ -478,6 +480,7 @@ class HeinSight:
                             break
                     if realtime_cap:
                         raw_video_writer.write(frame)
+
                 # 3. Detect the vial in the first frame or as needed.
                 if i == 0:
                     while True:
@@ -494,6 +497,7 @@ class HeinSight:
                             ret, frame = video.read()
                             if not ret:
                                 break
+
                 # 4. Process each frame
                 vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
                 update_od = True if not i % self.UPDATE_EVERY else False  # every _th iteration update
@@ -501,9 +505,12 @@ class HeinSight:
                 self.x_time.append(current_time if realtime_cap else round(i * self.READ_EVERY / fps / 60, 3))
                 frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
                 self.output_frame = frame_image
+
                 # 5. Optionally display processed frames in real-time.
                 if self.VISUALIZE:
                     cv2.imshow("Video", frame_image)
+
+                # 5.1. Record keystrokes during the analysis, in case of manual real time logging
                 key = cv2.waitKey(1) & 0xFF  # Get key pressed
                 if key == ord('q'):
                     self.stop_monitor()
@@ -512,6 +519,7 @@ class HeinSight:
                 phase_data["key pressed"] = '' if key == 255 else chr(key)
                 if key != 255:  # 255 is returned if no key is pressed
                     print(f"Key pressed: {chr(key)}")
+
                 # 6. Save the output data
                 # Save the processed frame to video file
                 video_writer.write(frame_image)
