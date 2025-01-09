@@ -71,14 +71,20 @@ class HeinSight:
             header.extend([f"volume_{i + 1}", f"turbidity_{i + 1}", f"color_{i + 1}"])
         return header
 
-    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=3, text_right: bool = False):
+    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=3, text_right: bool = False, margin: int = 10):
         """Draws rectangles on the input image."""
         output_image = image.copy()
         for i, rect in enumerate(bboxes):
-            color = self.color_palette.get(class_names[rect[-1]])
+            class_name = class_names[rect[-1]]
+            color = self.color_palette.get(class_name)
             x1, y1, x2, y2 = [int(x) for x in rect[:4]]
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
-            text_location = (int((x2 - x1) * 0.6) + x1 if text_right else x1, y1 + 15)
+            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 2, thickness)
+            # (int((x2 - x1) * 0.6) + x1
+            text_location = (
+                x2 - text_width - margin if text_right ^ (class_name == "Solid") else x1 + margin,
+                y1 + text_height + margin
+            )
             cv2.putText(output_image, class_names[rect[-1]], text_location, cv2.FONT_HERSHEY_SIMPLEX, 2,
                         color, thickness)
         return output_image
@@ -207,7 +213,7 @@ class HeinSight:
 
         # this part gets ugly when there is more than 1 l_bbox but for now good enough
         if self.INCLUDE_BB:
-            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=True,
+            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=False,
                                              thickness=3)
         # self.frame = frame
         fig = self.display_frame(y_values=raw_turbidity, image=frame, title=title)
