@@ -13,8 +13,8 @@ class FrameData(BaseModel):
     hsdata: list
 
 FRAME_RATE = 5
-heinsight = HeinSight(vial_model_path="models/labpic.pt",
-                      contents_model_path="models/best_train5_yolov8_ez_20240402.pt")
+heinsight = HeinSight(vial_model_path="models/best_vial_20250108.pt",
+                      contents_model_path="models/best_content_20250108_yolov8s.pt")
 source = 0
 
 
