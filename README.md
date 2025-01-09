@@ -23,7 +23,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ```python
 from heinsight.heinsight import HeinSight
 heinsight = HeinSight(vial_model_path="models/labpic.pt",
-                      contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt", )")
+                      contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt")
 
 # realtime analysis example
 heinsight.run(0)
@@ -39,7 +39,7 @@ from heinsight.heinsight import HeinSight
 ...
 
 heinsight = HeinSight(vial_model_path="models/labpic.pt",
-                      contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt", )")
+                      contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt")
 source = 0
 
 ...
@@ -48,3 +48,7 @@ source = 0
 pip install "fastapi[standard]"
 fastapi run stream.py
 ```
+### URLs
+* Start monitoring:   localhost:8000/start 
+* Stop monitoring:    localhost:8000/stop 
+* Analysis output:    localhost:8000/frame
