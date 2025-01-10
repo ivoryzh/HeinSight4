@@ -18,14 +18,6 @@ import pandas as pd
 from ultralytics import YOLO
 from ultralytics.data.utils import IMG_FORMATS
 
-"""
-2025-01-08:
-generic HeinSight 
-1. add rpi compatibility
-2. add stream
-3. clean up
-"""
-
 
 class HeinSight:
     NUM_ROWS = -1  # number of rows that the vial is split into. -1 means each individual pixel row
@@ -35,12 +27,17 @@ class HeinSight:
     UPDATE_EVERY = 5  # classifies vial contents ever 'UPDATE_EVERY' considered frame
     LIQUID_CONTENT = ["Homo", "Hetero"]
     CAP_RATIO = 0.3  # this is the cap ratio of a HPLC vial
+    NMS_RULES = {
+        ("Homo", "Hetero"): 0.2,        # Suppress lower confidence when Homo overlaps with Hetero
+        ("Hetero", "Residue"): 0.2,     # Suppress lower confidence when Hetero overlaps with Residue
+        ("Solid", "Residue"): 0.2,      # Suppress lower confidence when Solid overlaps with Residue
+        ("Empty", "Residue"): 0.2,      # Suppress lower confidence when Empty overlaps with Residue
+    }
 
     def __init__(self, vial_model_path, contents_model_path):
         """
         Initialize the HeinSight system.
         """
-        # self.frame = None
         self._thread = None
         self._running = True
         self.vial_model = YOLO(vial_model_path)
@@ -61,7 +58,6 @@ class HeinSight:
         """Draws rectangles on the input image."""
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         output_image = image.copy()
-
         # change thickness and font scale based on the vial frame height
         thickness = thickness or max(1, int(self.vial_size[1] / 200))
         margin = thickness * 2
@@ -118,37 +114,30 @@ class HeinSight:
 
     # NMS function for post procesing suppresion
 
-    def custom_nms(self, bboxes, iou_thresholds, class_rules, conf_threshold=0.25):
+    def custom_nms(self, bboxes):
         """
         Apply custom NMS based on class overlap rules.
 
         :param bboxes: Detected bounding boxes (numpy array: [x1, y1, x2, y2, conf, class_id]).
-        :param iou_thresholds: Dictionary of IoU thresholds for class pairs.
-        :param class_rules: Rules for suppressing classes when overlaps occur.
-        :param conf_threshold: Minimum confidence to consider a bounding box.
         :return: Filtered bounding boxes.
         """
         keep_indices = []
         bboxes = torch.tensor(bboxes)
-        classes = bboxes[:, 5].int()
+        classes = [self.contents_model.names[int(idx)] for idx in bboxes[:, 5]]
+
         confidences = bboxes[:, 4]
 
         for i, bbox in enumerate(bboxes):
-            if confidences[i] < conf_threshold:
-                continue  # Skip low-confidence boxes
 
             suppress = False
             for j, other_bbox in enumerate(bboxes):
-                if i == j or confidences[j] < conf_threshold:
+                if i == j:
                     continue
 
                 iou = box_iou(bbox[:4].unsqueeze(0), other_bbox[:4].unsqueeze(0)).item()
-                if iou > iou_thresholds.get((classes[i].item(), classes[j].item()), 0):
-                    rule = class_rules.get((classes[i].item(), classes[j].item()))
-                    if rule == "suppress_lower":
-                        suppress = confidences[i] < confidences[j]
-                    elif rule == "suppress_specific":
-                        suppress = True if classes[i].item() > classes[j].item() else False
+                iou_thresholds = self.NMS_RULES.get((classes[i], classes[j]), None)
+                if iou_thresholds and iou > iou_thresholds:
+                    suppress = confidences[i] < confidences[j]
 
                 if suppress:
                     break
@@ -158,19 +147,7 @@ class HeinSight:
 
         return bboxes[keep_indices].numpy()
 
-    class_rules = {
-        (0, 1): "suppress_lower",
-        (1, 2): "suppress_lower",  # Suppress lower confidence when class 1 overlaps with class 2
-        (4, 2): "suppress_lower",  # Suppress lower confidence when class 4 overlaps with class 2
-        (3, 2): "suppress_lower",
-    }
 
-    iou_thresholds = {
-        (0, 1): 0.2,
-        (1, 2): 0.2,
-        (4, 2): 0.2,
-        (3, 2): 0.2,
-    }
 
     def content_detection(self, vial_frame):
         """
@@ -182,7 +159,7 @@ class HeinSight:
         bboxes = result[0].boxes.data.cpu().numpy()
 
         # Apply custom NMS
-        bboxes = self.custom_nms(bboxes, self.iou_thresholds, self.class_rules)
+        bboxes = self.custom_nms(bboxes)
 
         pred_classes = bboxes[:, 5]  # np.array: [1, 3 ,4]
         title = " ".join([self.contents_model.names[x] for x in pred_classes])
