@@ -10,10 +10,10 @@ The output of the vessel detection model serves as input for the chemical detect
 Details on models training can be found here: 10.5281/zenodo.14630321
 
 ## Datasets
-# Vessel Dataset
+Vessel Dataset
 Composed of 6493 images from the HeinSight3.0 dataset combined with additional images of reactors and vessels to expand detection capabilities across various laboratory setups.
 	
-# Chemical Dataset
+Chemical Dataset
 Includes 3801 images captured from video footage of dynamic chemical experiments.
 Features diverse scenarios:
 o	Varied background lighting
