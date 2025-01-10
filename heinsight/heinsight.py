@@ -71,22 +71,28 @@ class HeinSight:
             header.extend([f"volume_{i + 1}", f"turbidity_{i + 1}", f"color_{i + 1}"])
         return header
 
-    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=3, text_right: bool = False, margin: int = 10):
+    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=None, text_right: bool = False):
         """Draws rectangles on the input image."""
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         output_image = image.copy()
+
+        # change thickness and font scale based on the vial frame height
+        thickness = thickness or max(1, int(self.vial_size[1] / 200))
+        margin = thickness * 2
+        text_thickness = max(1, min(int((thickness + 1) / 2), 3))       # (1, 3)
+        fontscale = min(0.5 * thickness, 2)                             # (0.5, 2)
+
         for i, rect in enumerate(bboxes):
             class_name = class_names[rect[-1]]
             color = self.color_palette.get(class_name)
             x1, y1, x2, y2 = [int(x) for x in rect[:4]]
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
-            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
-            # (int((x2 - x1) * 0.6) + x1
+            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, fontscale, text_thickness)
             text_location = (
                 x2 - text_width - margin if text_right ^ (class_name == "Solid") else x1 + margin,
                 y1 + text_height + margin
             )
-            cv2.putText(output_image, class_name, text_location, cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+            cv2.putText(output_image, class_name, text_location, cv2.FONT_HERSHEY_SIMPLEX, fontscale, color, text_thickness)
         return output_image
 
     def find_vial(self, frame, ):
@@ -216,8 +222,7 @@ class HeinSight:
 
         # this part gets ugly when there is more than 1 l_bbox but for now good enough
         if self.INCLUDE_BB:
-            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=False,
-                                             thickness=5)
+            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=False)
         # self.frame = frame
         fig = self.display_frame(y_values=raw_turbidity, image=frame, title=title)
 
