@@ -36,7 +36,7 @@ class HeinSight:
     LIQUID_CONTENT = ["Homo", "Hetero"]
     CAP_RATIO = 0.3  # this is the cap ratio of a HPLC vial
 
-    def __init__(self, vial_model_path, contents_model_path, max_phase: int = 2):
+    def __init__(self, vial_model_path, contents_model_path):
         """
         Initialize the HeinSight system.
         """
@@ -45,31 +45,17 @@ class HeinSight:
         self._running = True
         self.vial_model = YOLO(vial_model_path)
         self.contents_model = YOLO(contents_model_path)
-        self.max_phase = max_phase
         self.vial_location = None
         self.vial_size = [80, 200]
         self.content_info = None
-        self.monitor_range = [0, 1]
-        self.settle_monitor_range = [0, 1]
         self.color_palette = self._register_colors([self.contents_model])
         self.x_time = []
-        self.output_header = self._output_header()
         self.turbidity_2d = []
         self.average_colors = []
         self.average_turbidity = []
         self.output = []
         self.output_dataframe = pd.DataFrame()
         self.output_frame = None
-
-    def _output_header(self):
-        """
-        Generate headers for the output data based on the number of phases.
-        :return: header A list of column headers for the output. ["turbidity", "color", "turbidity_1", "color_1"]
-        """
-        header = ["turbidity", "color"]
-        for i in range(self.max_phase):
-            header.extend([f"volume_{i + 1}", f"turbidity_{i + 1}", f"color_{i + 1}"])
-        return header
 
     def draw_bounding_boxes(self, image, bboxes, class_names, thickness=None, text_right: bool = False):
         """Draws rectangles on the input image."""
@@ -79,20 +65,22 @@ class HeinSight:
         # change thickness and font scale based on the vial frame height
         thickness = thickness or max(1, int(self.vial_size[1] / 200))
         margin = thickness * 2
-        text_thickness = max(1, min(int((thickness + 1) / 2), 3))       # (1, 3)
-        fontscale = min(0.5 * thickness, 2)                             # (0.5, 2)
+        text_thickness = max(1, min(int((thickness + 1) / 2), 3))  # (1, 3)
+        fontscale = min(0.5 * thickness, 2)  # (0.5, 2)
 
         for i, rect in enumerate(bboxes):
             class_name = class_names[rect[-1]]
             color = self.color_palette.get(class_name)
             x1, y1, x2, y2 = [int(x) for x in rect[:4]]
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
-            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, fontscale, text_thickness)
+            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, fontscale,
+                                                                  text_thickness)
             text_location = (
                 x2 - text_width - margin if text_right ^ (class_name == "Solid") else x1 + margin,
                 y1 + text_height + margin
             )
-            cv2.putText(output_image, class_name, text_location, cv2.FONT_HERSHEY_SIMPLEX, fontscale, color, text_thickness)
+            cv2.putText(output_image, class_name, text_location, cv2.FONT_HERSHEY_SIMPLEX, fontscale, color,
+                        text_thickness)
         return output_image
 
     def find_vial(self, frame, ):
@@ -127,7 +115,6 @@ class HeinSight:
         """
         liquid_classes_id = [key for key, value in all_classes.items() if value in liquid_classes]
         return [index for index, c in enumerate(pred_classes) if c in liquid_classes_id]
-
 
     # NMS function for post procesing suppresion
 
@@ -541,6 +528,7 @@ class HeinSight:
                 # Save the processed frame to video file
                 video_writer.write(frame_image)
                 self.output.append(phase_data)
+                self.turbidity_2d.append(_raw_turb)
                 self.save_output(filename=output_filename)
                 i += 1
 
@@ -582,7 +570,7 @@ class HeinSight:
 
 if __name__ == "__main__":
     heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
-                          contents_model_path=r"models/best_content_20250108_yolov8s.pt", )
+                          contents_model_path=r"C:\Users\User\PycharmProjects\heinsight4.0\heinsight\models\best_content_200250109.pt", )
     output = heinsight.run(r"../examples/demo.png")
     # heinsight.run("C:\Users\User\Downloads\demo.png")
     # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_28_09_Pro.mp4")
