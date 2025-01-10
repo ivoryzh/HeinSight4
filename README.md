@@ -9,7 +9,7 @@ HeinSight4.0 employs a hierarchical detection approach by training two separate 
 The output of the vessel detection model serves as input for the chemical detection model, enabling phase-specific analysis. Both models were fine-tuned from YOLOv8 pretrained on the COCO dataset and adapted to our customized datasets.
 Details on models training can be found here: 10.5281/zenodo.14630321
 
-![]model_method.png
+![](model_method.png)
 
 ![](classes.png)
 
