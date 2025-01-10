@@ -487,6 +487,9 @@ class HeinSight:
                     if realtime_cap:
                         raw_video_writer.write(frame)
 
+                if frame is None:
+                    break
+
                 # 3. Detect the vial in the first frame or as needed.
                 if i == 0:
                     while True:
