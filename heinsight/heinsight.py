@@ -80,19 +80,18 @@ class HeinSight:
             color = self.color_palette.get(class_name)
             x1, y1, x2, y2 = [int(x) for x in rect[:4]]
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
-            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 2, thickness)
+            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 2, 2)
             # (int((x2 - x1) * 0.6) + x1
             text_location = (
                 x2 - text_width - margin if text_right ^ (class_name == "Solid") else x1 + margin,
                 y1 + text_height + margin
             )
-            cv2.putText(output_image, class_names[rect[-1]], text_location, cv2.FONT_HERSHEY_SIMPLEX, 2,
-                        color, thickness)
+            cv2.putText(output_image, class_name, text_location, cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
         return output_image
 
     def find_vial(self, frame, ):
         """
-        Detect the vial in video frame with YOLOv5
+        Detect the vial in video frame with YOLOv8
         :param frame: raw input frame
         :return result: np.ndarray or None: Detected vial bounding box or None if no vial is found.
         """
