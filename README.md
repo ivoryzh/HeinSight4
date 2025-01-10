@@ -30,7 +30,9 @@ Features diverse scenarios:
 * Different solid forms and behaviors in liquid environments
 This dataset enables monitoring of key experimental behaviors, including dissolution, melting, mixing, settling, and others, to address complex experimental conditions. A representative set of images is shown in **Figure 2**.
 
+
 ![](image.png)
+
 **Figure 2. Overview of diverse images in the training dataset used for the chemical detection model**
 
 ## Installation
