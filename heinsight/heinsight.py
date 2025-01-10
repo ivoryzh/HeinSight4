@@ -226,7 +226,7 @@ class HeinSight:
         # print(frame_image.shape) # this is 600x800
         return frame_image, raw_turbidity, phase_data
 
-    def start_monitoring(self, video_path, save_directory=None, output_name=None, fps=5, res=(1920, 1080)):
+    def start_monitoring(self, video_source, save_directory=None, output_name=None, fps=5, res=(1920, 1080)):
         """
         heinsight GUI function: starting monitoring, same param as run()
         :return: None
@@ -234,7 +234,7 @@ class HeinSight:
         self.VISUALIZE = False
         if self._thread is None or not self._thread.is_alive():
             self._running = True
-            self._thread = threading.Thread(target=self.run, args=(video_path, save_directory, output_name, fps, res))
+            self._thread = threading.Thread(target=self.run, args=(video_source, save_directory, output_name, fps, res))
             self._thread.daemon = True
             self._thread.start()
             print("Background task started.")
