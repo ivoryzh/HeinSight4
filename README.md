@@ -2,18 +2,19 @@
 HeinSight4.0 is a computer vision system designed for real-time monitoring of chemical behavior. It detects and classifies chemical phases (air, liquid, solid) within vessels, enabling automated observation of common experimental behaviors such as dissolution, melting, suspension, mixing, settling, and more. It also extracts additional visual cues like turbidity and color through image analysis.
 
 ## How It Works?
-HeinSight4.0 employs a hierarchical detection approach by training two separate models (Figure 1):
+HeinSight4.0 employs a hierarchical detection approach by training two separate models **(Figure 1)**:
 - Vessel Detection Model: Identifies transparent laboratory equipment (e.g., reactors and vessels) and marks them as "vessels."
-- Chemical Detection Model: Detects chemical artifacts and phases within the identified vessels. The model classifies chemical phases into five categories, as outlined in Table 1.
+- Chemical Detection Model: Detects chemical artifacts and phases within the identified vessels. The model classifies chemical phases into five categories, as outlined in **Table 1**.
 
 The output of the vessel detection model serves as input for the chemical detection model, enabling phase-specific analysis. Both models were fine-tuned from YOLOv8 pretrained on the COCO dataset and adapted to our customized datasets.
 Details on models training can be found here: 10.5281/zenodo.14630321
 
 ![](model_method.png)
-Figure 1. hierarchical detection approach of HeinSight4.0. 
+**Figure 1. hierarchical detection approach of HeinSight4.0.** 
 
 
-Table 1. Classes names for chemical detection model. 
+
+**Table 1. Classes names for chemical detection model**. 
 ![](classes.png)
 
 
@@ -27,8 +28,10 @@ Features diverse scenarios:
 * Varied background lighting
 * A range of colored liquids and compounds
 * Different solid forms and behaviors in liquid environments
-This dataset enables monitoring of key experimental behaviors, including dissolution, melting, mixing, settling, and others, to address complex experimental conditions. A representative set of images is shown in Figure 2.
+This dataset enables monitoring of key experimental behaviors, including dissolution, melting, mixing, settling, and others, to address complex experimental conditions. A representative set of images is shown in **Figure 2**.
 
+![](image.png)
+**Figure 2. Overview of diverse images in the training dataset used for the chemical detection model**
 
 ## Installation
 The script was developed on Window, and tested on Windows and a Raspberry Pi 5. Python versions should be flexible and align with the requirements of Ultralytics
