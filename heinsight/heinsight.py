@@ -80,13 +80,13 @@ class HeinSight:
             color = self.color_palette.get(class_name)
             x1, y1, x2, y2 = [int(x) for x in rect[:4]]
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
-            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 2, 2)
+            (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
             # (int((x2 - x1) * 0.6) + x1
             text_location = (
                 x2 - text_width - margin if text_right ^ (class_name == "Solid") else x1 + margin,
                 y1 + text_height + margin
             )
-            cv2.putText(output_image, class_name, text_location, cv2.FONT_HERSHEY_SIMPLEX, 2, color, 2)
+            cv2.putText(output_image, class_name, text_location, cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
         return output_image
 
     def find_vial(self, frame, ):
@@ -166,14 +166,17 @@ class HeinSight:
         return bboxes[keep_indices].numpy()
 
     class_rules = {
-        (0, 1): "suppress_specific",  # Suppress class 1 if it overlaps with class 0
+        (0, 1): "suppress_lower",
         (1, 2): "suppress_lower",  # Suppress lower confidence when class 1 overlaps with class 2
         (4, 2): "suppress_lower",  # Suppress lower confidence when class 4 overlaps with class 2
+        (3, 2): "suppress_lower",
     }
 
     iou_thresholds = {
-        (1, 2): 0.4,
-        (4, 2): 0.4,
+        (0, 1): 0.2,
+        (1, 2): 0.2,
+        (4, 2): 0.2,
+        (3, 2): 0.2,
     }
 
     def content_detection(self, vial_frame):
@@ -214,7 +217,7 @@ class HeinSight:
         # this part gets ugly when there is more than 1 l_bbox but for now good enough
         if self.INCLUDE_BB:
             frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=False,
-                                             thickness=3)
+                                             thickness=5)
         # self.frame = frame
         fig = self.display_frame(y_values=raw_turbidity, image=frame, title=title)
 
