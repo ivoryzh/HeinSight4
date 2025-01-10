@@ -10,19 +10,23 @@ The output of the vessel detection model serves as input for the chemical detect
 Details on models training can be found here: 10.5281/zenodo.14630321
 
 ![](model_method.png)
+Figure 1. hierarchical detection approach of HeinSight4.0. 
 
+
+Table 1. Classes names for chemical detection model. 
 ![](classes.png)
 
+
 ## Datasets
-Vessel Dataset
+### Vessel Dataset
 Composed of 6493 images from the HeinSight3.0 dataset combined with additional images of reactors and vessels to expand detection capabilities across various laboratory setups.
 	
-Chemical Dataset
+### Chemical Dataset
 Includes 3801 images captured from video footage of dynamic chemical experiments.
 Features diverse scenarios:
-o	Varied background lighting
-o	A range of colored liquids and compounds
-o	Different solid forms and behaviors in liquid environments
+* Varied background lighting
+* A range of colored liquids and compounds
+* Different solid forms and behaviors in liquid environments
 This dataset enables monitoring of key experimental behaviors, including dissolution, melting, mixing, settling, and others, to address complex experimental conditions. A representative set of images is shown in Figure 2.
 
 
