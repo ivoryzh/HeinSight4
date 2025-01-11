@@ -7,7 +7,7 @@ HeinSight4.0 employs a hierarchical detection approach by training two separate 
 - Chemical Detection Model: Detects chemical artifacts and phases within the identified vessels. The model classifies chemical phases into five categories, as outlined in **Table 1**.
 
 The output of the vessel detection model serves as input for the chemical detection model, enabling phase-specific analysis. Both models were fine-tuned from YOLOv8 pretrained on the COCO dataset and adapted to our customized datasets.
-Details on models training can be found here: 10.5281/zenodo.14630321
+Details on models training can be found here: https://zenodo.org/records/14630321. 
 
 ![](model_method.png)
 **Figure 1. hierarchical detection approach of HeinSight4.0.** 
@@ -29,6 +29,8 @@ Features diverse scenarios:
 * A range of colored liquids and compounds
 * Different solid forms and behaviors in liquid environments
 This dataset enables monitoring of key experimental behaviors, including dissolution, melting, mixing, settling, and others, to address complex experimental conditions. A representative set of images is shown in **Figure 2**.
+
+Dataset can be accessed at https://zenodo.org/records/14630321
 
 
 ![](image.png)
