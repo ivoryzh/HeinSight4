@@ -42,7 +42,7 @@ The script was developed on Window, and tested on Windows and a Raspberry Pi 5. 
 (Python>=3.8 environment with PyTorch>=1.8). 
 ```commandline
 git clone https://gitlab.com/heingroup/heinsight4.0.git
-cd heinsight
+cd heinsight4.0
 pip install -r requirements.txt
 ```
 ### Enable CUDA
