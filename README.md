@@ -44,6 +44,7 @@ The script was developed on Window, and tested on Windows and a Raspberry Pi 5. 
 git clone https://gitlab.com/heingroup/heinsight4.0.git
 cd heinsight4.0
 pip install -r requirements.txt
+cd heinsight
 ```
 ### Enable CUDA
 Note that PyTorch installation can be different when using a Nvidia GPU, check the [PyTorch](https://pytorch.org/) page for more detail.  
