@@ -546,8 +546,8 @@ class HeinSight:
 
 
 if __name__ == "__main__":
-    heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
-                          contents_model_path=r"models/best_content_200250109.pt", )
+    heinsight = HeinSight(vial_model_path=r"heinsight/models/best_vial_20250108.pt",
+                          contents_model_path=r"heinsight/models/best_content_200250109.pt", )
     output = heinsight.run(r"../examples/demo.png")
     # heinsight.run("C:\Users\User\Downloads\demo.png")
     # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_28_09_Pro.mp4")
