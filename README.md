@@ -42,7 +42,7 @@ The script was developed on Window, and tested on Windows and a Raspberry Pi 5. 
 (Python>=3.8 environment with PyTorch>=1.8). 
 ```commandline
 git clone https://gitlab.com/heingroup/heinsight4.0.git
-cd heinsight4.0
+cd heinsight
 pip install -r requirements.txt
 ```
 ### Enable CUDA
@@ -54,8 +54,8 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 ## Usage
 ```python
 from heinsight.heinsight import HeinSight
-heinsight = HeinSight(vial_model_path="models/labpic.pt",
-                      contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt")
+heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
+                      contents_model_path=r"models/best_content_200250109.pt", )
 
 # realtime analysis example
 heinsight.run(0)
@@ -70,8 +70,8 @@ from heinsight.heinsight import HeinSight
 
 ...
 
-heinsight = HeinSight(vial_model_path="models/labpic.pt",
-                      contents_model_path=r"models/best_train5_yolov8_ez_20240402.pt")
+heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
+                      contents_model_path=r"models/best_content_200250109.pt", )
 source = 0
 
 ...
