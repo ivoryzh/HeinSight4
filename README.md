@@ -41,8 +41,8 @@ Dataset can be accessed at https://zenodo.org/records/14630321
 The script was developed on Window, and tested on Windows and a Raspberry Pi 5. Python versions should be flexible and align with the requirements of Ultralytics
 (Python>=3.8 environment with PyTorch>=1.8). 
 ```commandline
-git clone https://gitlab.com/heingroup/heinsight2.5.git
-cd heinsight2.5
+git clone https://gitlab.com/heingroup/heinsight4.0.git
+cd heinsight4.0
 pip install -r requirements.txt
 ```
 ### Enable CUDA
