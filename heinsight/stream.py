@@ -6,14 +6,6 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from heinsight import HeinSight
 
-# Initialize FastAPI app
-app = FastAPI()
-
-
-# Placeholder for additional data
-class FrameData(BaseModel):
-    hsdata: list
-
 
 source = 0
 FRAME_RATE = 5
@@ -21,6 +13,14 @@ DIRECTORY = None
 FILENAME = None
 heinsight = HeinSight(vial_model_path="models/best_vial_20250108.pt",
                       contents_model_path="models/best_content_20250109.pt")
+
+# Initialize FastAPI app
+app = FastAPI()
+
+
+# Placeholder for additional data
+class FrameData(BaseModel):
+    hsdata: list
 
 
 is_monitoring = False

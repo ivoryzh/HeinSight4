@@ -64,18 +64,43 @@ sudo apt install -y python3-picamera2
 ```
 
 ## Usage
+### Quickstart with [demo image](examples/demo.png) (image mode)
+Output: heinsigh_output/[output.png](examples/demo_output.png)
+```commandline
+python heinsight.py
+```
+### Video analysis 
+Output: 
+* **heinsigh_output/output.mkv**: analysis output
+* **heinsigh_output/output_per_phase.csv**: turbidity and color (overall and per phase) over time
+* **heinsigh_output/output_raw.csv**: turbidity per row over time
 ```python
 from heinsight import HeinSight
 heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
-                      contents_model_path=r"models/best_content_200250109.pt", )
+                      contents_model_path=r"models/best_content_20250109.pt", )
 
+# video analysis example
+heinsight.run("path/to/video.mp4")
+```
+
+### Realtime monitoring with a webcam
+Output: Video analysis output + raw video capture
+```python
 # realtime analysis example
 heinsight.run(0)
 ```
 
+### Other arguments
+```python
+heinsight.run("path/to/video.mp4", 
+              save_directory="new_folder",  # save to other path
+              output_name="filename",       # save with other base filename
+              fps=5,                        # capture frame rate, only available with webcam
+              res=(1920, 1080))             # capture resolution
+```
 
 ### Stream
-Stream with a FastAPI app, in stream.py
+Stream with a FastAPI app, in [stream.py](heinsight/stream.py)
 
 ```python
 from heinsight import HeinSight
@@ -83,7 +108,7 @@ from heinsight import HeinSight
 ...
 
 heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
-                      contents_model_path=r"models/best_content_200250109.pt", )
+                      contents_model_path=r"models/best_content_20250109.pt", )
 source = 0
 
 ...
