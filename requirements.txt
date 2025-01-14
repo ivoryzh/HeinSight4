@@ -1,1 +1,12 @@
 Ultralytics
+
+# stream option
+# "fastapi[standard]"
+
+
+
+# for Raspberry Pi
+# opencv-python-headless
+# fastapi
+# uvicorn
+# picamera2

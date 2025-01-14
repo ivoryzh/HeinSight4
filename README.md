@@ -51,10 +51,21 @@ Note that PyTorch installation can be different when using a Nvidia GPU, check t
 ```
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
+### Installation on a Raspberry Pi
+
+Depending on the model sizes, and Pi model (pi 4 or 5), it might need to use headless openCV to avoid GUI conflict. Check out the [Stream](#stream) section for real time monitoring on a Pi device.
+```
+pip uninstall opencv-python
+pip install opencv-python-headless
+```
+Note that `picamera2` installation uses `apt`. Check formal installation guide for more details
+```
+sudo apt install -y python3-picamera2
+```
 
 ## Usage
 ```python
-from heinsight.heinsight import HeinSight
+from heinsight import HeinSight
 heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
                       contents_model_path=r"models/best_content_200250109.pt", )
 
@@ -67,7 +78,7 @@ heinsight.run(0)
 Stream with a FastAPI app, in stream.py
 
 ```python
-from heinsight.heinsight import HeinSight
+from heinsight import HeinSight
 
 ...
 
