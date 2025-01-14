@@ -450,6 +450,7 @@ class HeinSight:
                         frame = camera.capture_array()
                         if frame is not None:
                             frame = frame[:, :, :3]  # Remove any unnecessary channels
+                            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                         else:
                             break
                     else:
@@ -474,6 +475,7 @@ class HeinSight:
                             frame = camera.capture_array()
                             if frame is not None:
                                 frame = frame[:, :, :3]  # Remove any unnecessary channels
+                                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                         else:
                             ret, frame = video.read()
                             if not ret:
@@ -491,15 +493,15 @@ class HeinSight:
                 if self.VISUALIZE:
                     cv2.imshow("Video", frame_image)
 
-                # 5.1. Record keystrokes during the analysis, in case of manual real time logging
-                key = cv2.waitKey(1) & 0xFF  # Get key pressed
-                if key == ord('q'):
-                    self.stop_monitor()
-                    print("broke loop by pressing q")
-                    break
-                phase_data["key pressed"] = '' if key == 255 else chr(key)
-                if key != 255:  # 255 is returned if no key is pressed
-                    print(f"Key pressed: {chr(key)}")
+                    # 5.1. Record keystrokes during the analysis, in case of manual real time logging
+                    key = cv2.waitKey(1) & 0xFF  # Get key pressed
+                    if key == ord('q'):
+                        self.stop_monitor()
+                        print("broke loop by pressing q")
+                        break
+                    phase_data["key pressed"] = '' if key == 255 else chr(key)
+                    if key != 255:  # 255 is returned if no key is pressed
+                        print(f"Key pressed: {chr(key)}")
 
                 # 6. Save the output data
                 # Save the processed frame to video file
