@@ -20,7 +20,7 @@ FRAME_RATE = 5
 DIRECTORY = None
 FILENAME = None
 heinsight = HeinSight(vial_model_path="models/best_vial_20250108.pt",
-                      contents_model_path="models/best_content_20250108_yolov8s.pt")
+                      contents_model_path="models/best_content_20250109.pt")
 
 
 is_monitoring = False
