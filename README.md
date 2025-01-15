@@ -76,8 +76,8 @@ Output:
 * **heinsigh_output/output_raw.csv**: turbidity per row over time
 ```python
 from heinsight import HeinSight
-heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
-                      contents_model_path=r"models/best_content_20250109.pt", )
+heinsight = HeinSight(vial_model_path=r"models/best_vessel.pt",
+                      contents_model_path=r"models/best_content.pt", )
 
 # video analysis example
 heinsight.run("path/to/video.mp4")
@@ -107,8 +107,8 @@ from heinsight import HeinSight
 
 ...
 
-heinsight = HeinSight(vial_model_path=r"models/best_vial_20250108.pt",
-                      contents_model_path=r"models/best_content_20250109.pt", )
+heinsight = HeinSight(vial_model_path=r"models/best_vessel.pt",
+                      contents_model_path=r"models/best_content.pt", )
 source = 0
 
 ...
