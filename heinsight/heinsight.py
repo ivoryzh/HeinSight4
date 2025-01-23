@@ -400,6 +400,7 @@ class HeinSight:
 
         image_mode = type(source) is str and source.split(".")[-1] in IMG_FORMATS
         if image_mode:
+            self.clear_cache()
             frame = cv2.imread(source)
             # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = self.find_vial(frame=frame)
@@ -550,6 +551,7 @@ class HeinSight:
 if __name__ == "__main__":
     heinsight = HeinSight(vial_model_path=r"models/best_vessel.pt",
                           contents_model_path=r"models/best_content.pt", )
+    output = heinsight.run(r"../examples/demo.png")
     output = heinsight.run(r"../examples/demo.png")
     # heinsight.run("C:\Users\User\Downloads\demo.png")
     # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_28_09_Pro.mp4")
