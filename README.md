@@ -1,7 +1,7 @@
 # HeinSight4.0 – A Computer Vision System for Dynamic Monitoring of Chemical Experiments
 HeinSight4.0 is a computer vision system designed for real-time monitoring of chemical behavior. It detects and classifies chemical phases (air, liquid, solid) within vessels, enabling automated observation of common experimental behaviors such as dissolution, melting, suspension, mixing, settling, and more. It also extracts additional visual cues like turbidity and color through image analysis.
 
-**For running HeinSight4.0 on EasyMax data, please use this [branch](https://gitlab.com/heingroup/heinsight4.0/-/tree/3-reactor?ref_type=heads).**
+**This model was tested on chemistry within vials and EasyMax reactor.**
 
 ## How It Works?
 HeinSight4.0 employs a hierarchical detection approach by training two separate models **(Figure 1)**:
