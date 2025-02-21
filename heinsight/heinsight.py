@@ -53,6 +53,8 @@ class HeinSight:
         self.output = []
         self.output_dataframe = pd.DataFrame()
         self.output_frame = None
+        self.fig, self.axs = plt.subplots(2, 2, figsize=(8, 6), height_ratios=[2, 1], constrained_layout=True)
+        self._set_axes()
 
     def draw_bounding_boxes(self, image, bboxes, class_names, thickness=None, text_right: bool = False):
         """Draws rectangles on the input image."""
@@ -147,8 +149,6 @@ class HeinSight:
 
         return bboxes[keep_indices].numpy()
 
-
-
     def content_detection(self, vial_frame):
         """
         Detect content in a vial frame.
@@ -188,10 +188,10 @@ class HeinSight:
         if self.INCLUDE_BB:
             frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=False)
         # self.frame = frame
-        fig = self.display_frame(y_values=raw_turbidity, image=frame, title=title)
+        self.display_frame(y_values=raw_turbidity, image=frame, title=title)
 
-        fig.canvas.draw()
-        frame_image = np.array(fig.canvas.renderer.buffer_rgba())
+        self.fig.canvas.draw()
+        frame_image = np.array(self.fig.canvas.renderer.buffer_rgba())
         frame_image = cv2.cvtColor(frame_image, cv2.COLOR_RGBA2BGR)
 
         # print(frame_image.shape) # this is 600x800
@@ -250,27 +250,23 @@ class HeinSight:
         :param image: vial image frame to display
         :param title: title of the image frame
         """
-        # create grid for different subplots
-        plt.close()
-        fig, axs = plt.subplots(2, 2, figsize=(8, 6), height_ratios=[2, 1], constrained_layout=True)
-        ax0, ax1, ax2, ax3 = axs.flat
+        # init plot
+        for ax in self.axs.flat:
+            ax.clear()
+        ax0, ax1, ax2, ax3 = self.axs.flat
 
         # top left - vial frame and bounding boxes
         ax0.imshow(np.flipud(image), origin='lower')
         if title:
             ax0.set_title(title)
-        ax0.set_position([0.21, 0.45, 0.22, 0.43])  # [left, bottom, width, height]
 
-        # top right - Turbidity per row
-        bar_width = 1
-        x_values = range(len(y_values))
-        ax1.barh(x_values, np.flip(y_values), orientation='horizontal', height=bar_width, color='green', alpha=0.5)
-        ax1.set_ylim(0, len(y_values))
-        ax1.set_xlim(0, 255)
-        ax1.xaxis.tick_top()
+        # use fill between to optimize the speed 154.9857677 -> 68.15193
+        x_values = np.arange(len(y_values))
         ax1.xaxis.set_label_position('top')
         ax1.set_xlabel('Turbidity per row')
-        ax1.set_position([0.47, 0.45, 0.45, 0.43])
+        ax1.set_ylim(0, len(y_values))
+        ax1.set_xlim(0, 255)
+        ax1.fill_betweenx(x_values, 0, y_values[::-1], color='green', alpha=0.5)
 
         realtime_tick_label = None
 
@@ -279,15 +275,12 @@ class HeinSight:
         ax2.set_xlabel('Time / min')
         ax2.plot(self.x_time, self.average_turbidity)
         ax2.set_xticks([self.x_time[0], self.x_time[-1]], realtime_tick_label)
-        ax2.set_position([0.12, 0.12, 0.35, 0.27])
 
         # bottom right - color
         ax3.set_ylabel('Color (hue)')
         ax3.set_xlabel('Time / min')
         ax3.plot(self.x_time, self.average_colors)
         ax3.set_xticks([self.x_time[0], self.x_time[-1]], realtime_tick_label)
-        ax3.set_position([0.56, 0.12, 0.35, 0.27])
-        return fig
 
     def calculate_value_color(self, vial_frame, liquid_boxes):
         """
@@ -298,7 +291,7 @@ class HeinSight:
         """
         raw_value = []
         height, width, _ = vial_frame.shape
-        hsv_image = cv2.cvtColor(vial_frame, cv2.COLOR_RGB2HSV)
+        hsv_image = cv2.cvtColor(vial_frame, cv2.COLOR_BGR2HSV)
         average_color = np.mean(hsv_image[:, :, 0])
         average_value = np.mean(hsv_image[:, :, 2])
         self.average_colors.append(average_color)
@@ -365,7 +358,7 @@ class HeinSight:
         self.output = []
 
     def run(self, source, save_directory=None, output_name=None, fps=5,
-            res=(1920, 1080)):
+            res=(1920, 1080), live_save: bool = False):
         """
         Main function to perform vial monitoring. Captures video frames from a camera or video file,
         Workflow:
@@ -390,6 +383,7 @@ class HeinSight:
         :param output_name: output name, defaults to "output"
         :param fps: FPS, defaults to 5
         :param res: (realtime capturing) resolution, defaults to (1920, 1080)
+        :param live_save: whether to save csv data after every frame
         :return: output over time dictionary
         """
         # ensure proper naming
@@ -509,7 +503,11 @@ class HeinSight:
                 video_writer.write(frame_image)
                 self.output.append(phase_data)
                 self.turbidity_2d.append(_raw_turb)
-                self.save_output(filename=output_filename)
+
+                # not save output for every frame ~30% faster
+                if live_save:
+                    self.save_output(filename=output_filename)
+
                 i += 1
 
             # 7. Handle cleanup and resource release on completion or interruption.
@@ -524,6 +522,7 @@ class HeinSight:
                 raw_video_writer.release()
             video_writer.release()  # Ensure video is saved
             cv2.destroyAllWindows()
+            self.save_output(filename=output_filename)
             print(f"Results saved to {output_filename}")
             return self.output
 
@@ -546,6 +545,16 @@ class HeinSight:
             if name not in name_color_dict.keys():
                 name_color_dict[name] = (randint(0, 255), randint(0, 255), randint(0, 255))
         return name_color_dict
+
+    def _set_axes(self):
+        """creating plot axes"""
+        ax0, ax1, ax2, ax3 = self.axs.flat
+        ax0.set_position([0.21, 0.45, 0.22, 0.43])  # [left, bottom, width, height]
+
+        ax1.set_position([0.47, 0.45, 0.45, 0.43])  # [left, bottom, width, height]
+        ax2.set_position([0.12, 0.12, 0.35, 0.27])
+        ax3.set_position([0.56, 0.12, 0.35, 0.27])
+        self.fig.canvas.draw_idle()
 
 
 if __name__ == "__main__":
