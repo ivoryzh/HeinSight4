@@ -6,13 +6,15 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 from heinsight import HeinSight
 
+# uvicorn stream:app --host 0.0.0.0 --port 8000
 
-source = 0
+
+source = r"/Users/ivoryzhang/Downloads/output_raw.mp4"
 FRAME_RATE = 5
 DIRECTORY = None
 FILENAME = None
-heinsight = HeinSight(vial_model_path="models/best_vial_20250108.pt",
-                      contents_model_path="models/best_content_20250109.pt")
+heinsight = HeinSight(vial_model_path="models/best_vessel.pt",
+                      contents_model_path="models/best_content.pt")
 
 # Initialize FastAPI app
 app = FastAPI()
