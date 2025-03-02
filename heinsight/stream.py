@@ -9,7 +9,7 @@ from heinsight import HeinSight
 # uvicorn stream:app --host 0.0.0.0 --port 8000
 
 
-source = r"/Users/ivoryzhang/Downloads/output_raw.mp4"
+source = 0
 FRAME_RATE = 5
 DIRECTORY = None
 FILENAME = None
