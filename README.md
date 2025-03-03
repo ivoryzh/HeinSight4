@@ -117,6 +117,7 @@ source = 0
 ```
 ```commandline
 pip install "fastapi[standard]"
+cd heinsight
 fastapi run stream.py
 ```
 ### URLs
