@@ -120,9 +120,11 @@ pip install "fastapi[standard]"
 fastapi run stream.py
 ```
 ### URLs
-* Start monitoring:   localhost:8000/start 
-* Stop monitoring:    localhost:8000/stop 
-* Analysis output:    localhost:8000/frame
+* Docs:   [localhost:8000/docs](http://localhost:8000/docs)
+* Start monitoring:   [localhost:8000/start](http://localhost:8000/start) 
+* Stop monitoring:    [localhost:8000/stop](http://localhost:8000/stop) 
+* Frame output; get to stream video frames:    [localhost:8000/frame](http://localhost:8000/frame)
+* Data output:    [localhost:8000/data](http://localhost:8000/data)
 
 ## Acknowledgements
 Rama El-khawaldeh, Ivory Zhang, Ryan Corkery
