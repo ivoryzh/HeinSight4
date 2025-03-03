@@ -339,6 +339,8 @@ class HeinSight:
         :param vial_location:
         :return: cropped and resized vial frame
         """
+        if vial_location is None:
+            return image
         vial_x1, vial_y1, vial_x2, vial_y2 = vial_location
         vial_y1 = int(self.CAP_RATIO * (vial_y2 - vial_y1)) + vial_y1
         cropped_image = image[vial_y1:vial_y2, vial_x1:vial_x2]
