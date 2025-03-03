@@ -460,7 +460,7 @@ class HeinSight:
 
                 # 3. Detect the vial in the first frame or as needed.
                 if i == 0:
-                    while True:
+                    while self._running:
                         result = self.find_vial(frame=frame)
                         if result is not None:
                             break
