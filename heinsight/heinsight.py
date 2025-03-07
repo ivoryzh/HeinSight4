@@ -23,15 +23,16 @@ class HeinSight:
     NUM_ROWS = -1  # number of rows that the vial is split into. -1 means each individual pixel row
     VISUALIZE = True  # watch in real time, if False it will only make a video without showing it
     INCLUDE_BB = True  # show bounding boxes in output video
-    READ_EVERY = 5  # only considers every 'READ_EVERY' frame -> faster rendering
+    SAVE_PLOT_VIDEO = False
+    READ_EVERY = 1  # only considers every 'READ_EVERY' frame -> faster rendering
     UPDATE_EVERY = 5  # classifies vial contents ever 'UPDATE_EVERY' considered frame
     LIQUID_CONTENT = ["Homo", "Hetero"]
     CAP_RATIO = 0.3  # this is the cap ratio of a HPLC vial
     NMS_RULES = {
-        ("Homo", "Hetero"): 0.2,        # Suppress lower confidence when Homo overlaps with Hetero
-        ("Hetero", "Residue"): 0.2,     # Suppress lower confidence when Hetero overlaps with Residue
-        ("Solid", "Residue"): 0.2,      # Suppress lower confidence when Solid overlaps with Residue
-        ("Empty", "Residue"): 0.2,      # Suppress lower confidence when Empty overlaps with Residue
+        ("Homo", "Hetero"): 0.2,  # Suppress lower confidence when Homo overlaps with Hetero
+        ("Hetero", "Residue"): 0.2,  # Suppress lower confidence when Hetero overlaps with Residue
+        ("Solid", "Residue"): 0.2,  # Suppress lower confidence when Solid overlaps with Residue
+        ("Empty", "Residue"): 0.2,  # Suppress lower confidence when Empty overlaps with Residue
     }
 
     def __init__(self, vial_model_path, contents_model_path):
@@ -40,6 +41,7 @@ class HeinSight:
         """
         self._thread = None
         self._running = True
+        # todo add camera on/off signal
         self.vial_model = YOLO(vial_model_path)
         self.contents_model = YOLO(contents_model_path)
         self.vial_location = None
@@ -51,6 +53,8 @@ class HeinSight:
         self.average_colors = []
         self.average_turbidity = []
         self.output = []
+        self.stream_output = []
+        self.status = {}
         self.output_dataframe = pd.DataFrame()
         self.output_frame = None
         self.fig, self.axs = plt.subplots(2, 2, figsize=(8, 6), height_ratios=[2, 1], constrained_layout=True)
@@ -155,13 +159,17 @@ class HeinSight:
         :param vial_frame: (np.ndarray) Cropped vial frame.
         :return tuple: Bounding boxes, liquid boxes, and detected class titles.
         """
-        result = self.contents_model(vial_frame, max_det=4, agnostic_nms=False, conf=0.25, iou=0.25)
+        result = self.contents_model(vial_frame, max_det=4, agnostic_nms=False, conf=0.25, iou=0.25, verbose=False)
         bboxes = result[0].boxes.data.cpu().numpy()
 
         # Apply custom NMS
         bboxes = self.custom_nms(bboxes)
 
         pred_classes = bboxes[:, 5]  # np.array: [1, 3 ,4]
+        # print([self.contents_model.names[x] for x in pred_classes])
+        for x in pred_classes:
+            self.status[self.contents_model.names[x]] = True
+
         title = " ".join([self.contents_model.names[x] for x in pred_classes])
 
         index = self.find_liquid(pred_classes, self.LIQUID_CONTENT, self.contents_model.names)  # [1, 3]
@@ -186,18 +194,20 @@ class HeinSight:
 
         # this part gets ugly when there is more than 1 l_bbox but for now good enough
         if self.INCLUDE_BB:
-            frame = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=False)
-        # self.frame = frame
-        self.display_frame(y_values=raw_turbidity, image=frame, title=title)
+            frame_image = self.draw_bounding_boxes(vial_frame, bboxes, self.contents_model.names, text_right=False)
 
-        self.fig.canvas.draw()
-        frame_image = np.array(self.fig.canvas.renderer.buffer_rgba())
-        frame_image = cv2.cvtColor(frame_image, cv2.COLOR_RGBA2BGR)
+        # self.frame = frame
+        if self.SAVE_PLOT_VIDEO:
+            self.display_frame(y_values=raw_turbidity, image=frame_image, title=title)
+
+            self.fig.canvas.draw()
+            frame_image = np.array(self.fig.canvas.renderer.buffer_rgba())
+            frame_image = cv2.cvtColor(frame_image, cv2.COLOR_RGBA2BGR)
 
         # print(frame_image.shape) # this is 600x800
         return frame_image, raw_turbidity, phase_data
 
-    def start_monitoring(self, video_source, save_directory=None, output_name=None, fps=5, res=(1920, 1080)):
+    def start_monitoring(self, video_source, save_directory=None, output_name=None, fps=30, res=(1920, 1080)):
         """
         heinsight GUI function: starting monitoring, same param as run()
         :return: None
@@ -356,8 +366,9 @@ class HeinSight:
         self.content_info = None
         self.turbidity_2d = []
         self.output = []
+        self.vial_size = None
 
-    def run(self, source, save_directory=None, output_name=None, fps=5,
+    def run(self, source, save_directory=None, output_name=None, fps=30,
             res=(1920, 1080), live_save: bool = False):
         """
         Main function to perform vial monitoring. Captures video frames from a camera or video file,
@@ -394,7 +405,7 @@ class HeinSight:
 
         image_mode = type(source) is str and source.split(".")[-1] in IMG_FORMATS
         if image_mode:
-            self.clear_cache()
+
             frame = cv2.imread(source)
             # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = self.find_vial(frame=frame)
@@ -423,7 +434,7 @@ class HeinSight:
             else:
                 video = cv2.VideoCapture(source)
                 if realtime_cap:
-                    video.set(cv2.CAP_PROP_FPS, fps)
+                    video.set(cv2.CAP_PROP_FPS, 5)
                     video.set(cv2.CAP_PROP_FRAME_WIDTH, res[0])
                     video.set(cv2.CAP_PROP_FRAME_HEIGHT, res[1])
                 fps = int(video.get(cv2.CAP_PROP_FPS))
@@ -431,7 +442,6 @@ class HeinSight:
 
             # 2. Setup video writers for saving outputs
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')  # Choose the appropriate codec
-            video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, 30, (800, 600))
             if realtime_cap:
                 raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
 
@@ -440,6 +450,8 @@ class HeinSight:
             # try:
             while self._running:
                 # Capture and process frames, skip frames if not READ_EVERY = 1
+                # cap = time.perf_counter()
+
                 for _ in range(self.READ_EVERY):
                     if source == "picam":
                         frame = camera.capture_array()
@@ -500,8 +512,12 @@ class HeinSight:
 
                 # 6. Save the output data
                 # Save the processed frame to video file
+                if i == 0:
+                    height, width, _ = frame_image.shape
+                    video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, 30, (width, height))
                 video_writer.write(frame_image)
                 self.output.append(phase_data)
+                self.optimize_stream_output()
                 self.turbidity_2d.append(_raw_turb)
 
                 # not save output for every frame ~30% faster
@@ -524,6 +540,7 @@ class HeinSight:
             cv2.destroyAllWindows()
             self.save_output(filename=output_filename)
             print(f"Results saved to {output_filename}")
+            self.clear_cache()
             return self.output
 
     @staticmethod
@@ -555,6 +572,16 @@ class HeinSight:
         ax2.set_position([0.12, 0.12, 0.35, 0.27])
         ax3.set_position([0.56, 0.12, 0.35, 0.27])
         self.fig.canvas.draw_idle()
+
+    def optimize_stream_output(self):
+        data_length = len(self.output)
+        max_points = 1000
+        # Determine the indices to sample from
+        if data_length > max_points:
+            step = data_length // max_points + 1  # Ensure even spacing
+            self.stream_output = self.output[::step][:max_points]
+        else:
+            self.stream_output = self.output  # Use all data if less than 1000
 
 
 if __name__ == "__main__":
