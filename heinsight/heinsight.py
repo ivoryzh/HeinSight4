@@ -23,7 +23,7 @@ class HeinSight:
     NUM_ROWS = -1  # number of rows that the vial is split into. -1 means each individual pixel row
     VISUALIZE = True  # watch in real time, if False it will only make a video without showing it
     INCLUDE_BB = True  # show bounding boxes in output video
-    SAVE_PLOT_VIDEO = False
+    SAVE_PLOT_VIDEO = True
     READ_EVERY = 1  # only considers every 'READ_EVERY' frame -> faster rendering
     UPDATE_EVERY = 5  # classifies vial contents ever 'UPDATE_EVERY' considered frame
     LIQUID_CONTENT = ["Homo", "Hetero"]
