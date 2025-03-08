@@ -12,12 +12,13 @@ from random import randint
 import torch
 from torchvision.ops import box_iou
 import cv2
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from ultralytics import YOLO
 from ultralytics.data.utils import IMG_FORMATS
-
+matplotlib.use('Agg')
 
 class HeinSight:
     NUM_ROWS = -1  # number of rows that the vial is split into. -1 means each individual pixel row
@@ -241,7 +242,8 @@ class HeinSight:
                 if frame is None:
                     break
 
-                # Encode frame as JPEG
+                # Convert to RGB! Encode frame as JPEG
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 _, buffer = cv2.imencode('.jpg', frame)
                 frame_bytes = buffer.tobytes()
 
@@ -366,6 +368,7 @@ class HeinSight:
         self.content_info = None
         self.turbidity_2d = []
         self.output = []
+        self.stream_output = []
         self.vial_size = None
 
     def run(self, source, save_directory=None, output_name=None, fps=30,
@@ -444,7 +447,7 @@ class HeinSight:
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')  # Choose the appropriate codec
             if realtime_cap:
                 raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
-
+            video_writer = None  #TODO
             # video capturing and analysis
             i = 0
             # try:
@@ -491,7 +494,7 @@ class HeinSight:
                 # 4. Process each frame
                 vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
                 update_od = True if not i % self.UPDATE_EVERY else False  # every _th iteration update
-                current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                current_time = datetime.datetime.now().isoformat()#.strftime('%Y-%m-%d %H:%M:%S')
                 self.x_time.append(current_time if realtime_cap else round(i * self.READ_EVERY / fps / 60, 3))
                 frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
                 self.output_frame = frame_image
@@ -515,7 +518,8 @@ class HeinSight:
                 if i == 0:
                     height, width, _ = frame_image.shape
                     video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, 30, (width, height))
-                video_writer.write(frame_image)
+                if video_writer:
+                    video_writer.write(frame_image)
                 self.output.append(phase_data)
                 self.optimize_stream_output()
                 self.turbidity_2d.append(_raw_turb)
@@ -536,7 +540,8 @@ class HeinSight:
                 video.release()
             if realtime_cap:
                 raw_video_writer.release()
-            video_writer.release()  # Ensure video is saved
+            if video_writer:
+                video_writer.release()  # Ensure video is saved
             cv2.destroyAllWindows()
             self.save_output(filename=output_filename)
             print(f"Results saved to {output_filename}")

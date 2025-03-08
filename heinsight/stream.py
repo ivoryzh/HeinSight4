@@ -53,12 +53,9 @@ async def start_monitoring(request: Request):
 
     data = await request.json()
     video_source = data.get("video_source", VIDEO_SOURCE)
-    if not video_source:
+    if video_source is None:
         video_source = VIDEO_SOURCE
-
     FRAME_RATE = data.get("frame_rate", FRAME_RATE)
-    if not video_source:
-        return JSONResponse(content={"error": "Missing source parameter"}, status_code=400)
 
     if not is_monitoring:
         current_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
