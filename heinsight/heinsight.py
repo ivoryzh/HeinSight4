@@ -405,7 +405,7 @@ class HeinSight:
         save_directory = save_directory or './heinsight_output'
         os.makedirs(save_directory, exist_ok=True)
         output_filename = os.path.join(save_directory, output_name)
-
+        self.clear_cache()
         image_mode = type(source) is str and source.split(".")[-1] in IMG_FORMATS
         if image_mode:
 
@@ -425,7 +425,7 @@ class HeinSight:
             realtime_cap = type(source) is int or source == "picam"
 
             # clear history
-            self.clear_cache()
+            # self.clear_cache()
 
             # 1. Initialize video capture
             # TODO change fps
