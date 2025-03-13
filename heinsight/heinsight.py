@@ -30,6 +30,7 @@ class HeinSight:
     UPDATE_EVERY = 5  # classifies vial contents ever 'UPDATE_EVERY' considered frame
     LIQUID_CONTENT = ["Homo", "Hetero"]
     CAP_RATIO = 0.3  # this is the cap ratio of a HPLC vial
+    STATUS_RULE = 0.7   # 70% rule > 7/10 homo -> home
     NMS_RULES = {
         ("Homo", "Hetero"): 0.2,  # Suppress lower confidence when Homo overlaps with Hetero
         ("Hetero", "Residue"): 0.2,  # Suppress lower confidence when Hetero overlaps with Residue
@@ -58,6 +59,7 @@ class HeinSight:
         self.output = []
         self.stream_output = []
         self.status = {}
+        self.status_queue = []
         self.output_dataframe = pd.DataFrame()
         self.output_frame = None
         self.fig, self.axs = plt.subplots(2, 2, figsize=(8, 6), height_ratios=[2, 1], constrained_layout=True)
@@ -180,11 +182,8 @@ class HeinSight:
 
         pred_classes = bboxes[:, 5]  # np.array: [1, 3 ,4]
         # print([self.contents_model.names[x] for x in pred_classes])
-        for x in self.contents_model.names.keys():
-            if x in pred_classes:
-                self.status[self.contents_model.names[x]] = True
-            else:
-                self.status[self.contents_model.names[x]] = False
+        self.average_status(pred_classes)
+
 
         title = " ".join([self.contents_model.names[x] for x in pred_classes])
 
