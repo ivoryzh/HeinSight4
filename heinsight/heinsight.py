@@ -92,19 +92,21 @@ class HeinSight:
         :param frame: raw input frame
         :return result: np.ndarray or None: Detected vial bounding box or None if no vial is found.
         """
-        self.vial_model.conf = 0.5
-        self.vial_model.max_det = 1
-        result = self.vial_model(frame)
-        result = result[0].boxes.data.cpu().numpy()
-        if len(result) == 0:
-            return None
-        else:
-            # vial_box = result.pred[0].cpu().numpy()[0, :4]  # if self.vial_model else result[0].cpu().numpy()
-            self.vial_location = [x.astype(np.int16) for x in result[0, : 4]]
-            self.vial_size = [
-                int(self.vial_location[2] - self.vial_location[0]),
-                int((self.vial_location[3] - self.vial_location[1]) * (1 - self.CAP_RATIO))
-            ]
+        result = None
+        if not self.vial_location:
+            self.vial_model.conf = 0.5
+            self.vial_model.max_det = 1
+            result = self.vial_model(frame, conf=0.2, max_det=1)
+            result = result[0].boxes.data.cpu().numpy()
+            if len(result) == 0:
+                return None
+            else:
+                # vial_box = result.pred[0].cpu().numpy()[0, :4]  # if self.vial_model else result[0].cpu().numpy()
+                self.vial_location = [x.astype(np.int16) for x in result[0, : 4]]
+        self.vial_size = [
+            int(self.vial_location[2] - self.vial_location[0]),
+            int((self.vial_location[3] - self.vial_location[1]) * (1 - self.CAP_RATIO))
+        ]
         return result
 
     @staticmethod
@@ -168,8 +170,12 @@ class HeinSight:
 
         pred_classes = bboxes[:, 5]  # np.array: [1, 3 ,4]
         # print([self.contents_model.names[x] for x in pred_classes])
-        for x in pred_classes:
-            self.status[self.contents_model.names[x]] = True
+        for x in self.contents_model.names.keys():
+            if x in pred_classes:
+                self.status[self.contents_model.names[x]] = True
+            else:
+                self.status[self.contents_model.names[x]] = False
+
 
         title = " ".join([self.contents_model.names[x] for x in pred_classes])
 
@@ -214,6 +220,7 @@ class HeinSight:
         :return: None
         """
         self.VISUALIZE = False
+        self.SAVE_PLOT_VIDEO = False
         if self._thread is None or not self._thread.is_alive():
             self._running = True
             self._thread = threading.Thread(target=self.run, args=(video_source, save_directory, output_name, fps, res))
@@ -412,7 +419,7 @@ class HeinSight:
             frame = cv2.imread(source)
             # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = self.find_vial(frame=frame)
-            if result is not None:
+            if self.vial_location is not None:
                 vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
                 self.x_time = [0]
                 frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=True)
@@ -477,7 +484,7 @@ class HeinSight:
                 if i == 0:
                     while self._running:
                         result = self.find_vial(frame=frame)
-                        if result is not None:
+                        if self.vial_location is not None:
                             break
                         print("No vial found, re-detecting")
                         time.sleep(1)
