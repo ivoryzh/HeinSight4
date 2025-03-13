@@ -3,6 +3,7 @@ import datetime
 import os
 import sys
 import time
+from collections import defaultdict
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -63,7 +64,7 @@ class HeinSight:
         self._set_axes()
         self.turbidity = []
 
-    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=None, text_right: bool = False):
+    def draw_bounding_boxes(self, image, bboxes, class_names, thickness=None, text_right: bool = False, on_raw=False):
         """Draws rectangles on the input image."""
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         output_image = image.copy()
@@ -607,6 +608,33 @@ class HeinSight:
             self.stream_output = self.output[::step][:max_points]
         else:
             self.stream_output = self.output  # Use all data if less than 1000
+
+    def average_status(self, pred_classes):
+        status = {}
+        for x in self.contents_model.names.keys():
+            if x in pred_classes:
+                status[self.contents_model.names[x]] = True
+            else:
+                status[self.contents_model.names[x]] = False
+        self.status_queue.append(status)
+        if len(self.status_queue) > 10:
+            self.status_queue.pop(0)
+
+        true_counts = defaultdict(int)
+
+        # Count the occurrences of True for each key
+        for d in self.status_queue:
+            for key, value in d.items():
+                if value:
+                    true_counts[key] += 1
+
+        # Determine the result based on the 70% rule
+        for key, count in true_counts.items():
+            total_count = len(self.status_queue)
+            if count / total_count >= self.STATUS_RULE:  # 70% rule
+                self.status[key] = True
+            else:
+                self.status[key] = False
 
 
 if __name__ == "__main__":
