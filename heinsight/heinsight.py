@@ -46,6 +46,7 @@ class HeinSight:
         self.vial_model = YOLO(vial_model_path)
         self.contents_model = YOLO(contents_model_path)
         self.vial_location = None
+        self.cap_rows = 0
         self.vial_size = [80, 200]
         self.content_info = None
         self.color_palette = self._register_colors([self.contents_model])
@@ -60,10 +61,11 @@ class HeinSight:
         self.output_frame = None
         self.fig, self.axs = plt.subplots(2, 2, figsize=(8, 6), height_ratios=[2, 1], constrained_layout=True)
         self._set_axes()
+        self.turbidity = []
 
     def draw_bounding_boxes(self, image, bboxes, class_names, thickness=None, text_right: bool = False):
         """Draws rectangles on the input image."""
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         output_image = image.copy()
         # change thickness and font scale based on the vial frame height
         thickness = thickness or max(1, int(self.vial_size[1] / 200))
@@ -75,6 +77,12 @@ class HeinSight:
             class_name = class_names[rect[-1]]
             color = self.color_palette.get(class_name)
             x1, y1, x2, y2 = [int(x) for x in rect[:4]]
+            if on_raw:
+                x1 += self.vial_location[0]
+                x2 += self.vial_location[0]
+                y1 += self.vial_location[1] + self.cap_rows
+                y2 += self.vial_location[1] + self.cap_rows
+
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
             (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, fontscale,
                                                                   text_thickness)
@@ -107,6 +115,7 @@ class HeinSight:
             int(self.vial_location[2] - self.vial_location[0]),
             int((self.vial_location[3] - self.vial_location[1]) * (1 - self.CAP_RATIO))
         ]
+        self.cap_rows = int((self.vial_location[3] - self.vial_location[1]) * self.CAP_RATIO)
         return result
 
     @staticmethod
@@ -176,7 +185,6 @@ class HeinSight:
             else:
                 self.status[self.contents_model.names[x]] = False
 
-
         title = " ".join([self.contents_model.names[x] for x in pred_classes])
 
         index = self.find_liquid(pred_classes, self.LIQUID_CONTENT, self.contents_model.names)  # [1, 3]
@@ -211,8 +219,7 @@ class HeinSight:
             frame_image = np.array(self.fig.canvas.renderer.buffer_rgba())
             frame_image = cv2.cvtColor(frame_image, cv2.COLOR_RGBA2BGR)
 
-        # print(frame_image.shape) # this is 600x800
-        return frame_image, raw_turbidity, phase_data
+        return frame_image, bboxes, raw_turbidity, phase_data
 
     def start_monitoring(self, video_source, save_directory=None, output_name=None, fps=30, res=(1920, 1080)):
         """
@@ -250,7 +257,7 @@ class HeinSight:
                     break
 
                 # Convert to RGB! Encode frame as JPEG
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 _, buffer = cv2.imencode('.jpg', frame)
                 frame_bytes = buffer.tobytes()
 
@@ -422,7 +429,8 @@ class HeinSight:
             if self.vial_location is not None:
                 vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
                 self.x_time = [0]
-                frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=True)
+                frame_image, _bboxes, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame,
+                                                                                      update_od=True)
                 print(phase_data)
                 cv2.imwrite(f"{output_filename}.png", frame_image)
             else:
@@ -444,7 +452,7 @@ class HeinSight:
             else:
                 video = cv2.VideoCapture(source)
                 if realtime_cap:
-                    video.set(cv2.CAP_PROP_FPS, 5)
+                    video.set(cv2.CAP_PROP_FPS, fps)
                     video.set(cv2.CAP_PROP_FRAME_WIDTH, res[0])
                     video.set(cv2.CAP_PROP_FRAME_HEIGHT, res[1])
                 fps = int(video.get(cv2.CAP_PROP_FPS))
@@ -454,7 +462,10 @@ class HeinSight:
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')  # Choose the appropriate codec
             if realtime_cap:
                 raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
-            video_writer = None  #TODO
+
+            output_res = (800, 600) if self.SAVE_PLOT_VIDEO else res
+            video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, 30, output_res)
+
             # video capturing and analysis
             i = 0
             # try:
@@ -501,10 +512,13 @@ class HeinSight:
                 # 4. Process each frame
                 vial_frame = self.crop_rectangle(image=frame, vial_location=self.vial_location)
                 update_od = True if not i % self.UPDATE_EVERY else False  # every _th iteration update
-                current_time = datetime.datetime.now().isoformat()#.strftime('%Y-%m-%d %H:%M:%S')
-                self.x_time.append(current_time if realtime_cap else round(i * self.READ_EVERY / fps / 60, 3))
-                frame_image, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame, update_od=update_od)
+                current_time = datetime.datetime.now().isoformat()  # .strftime('%Y-%m-%d %H:%M:%S')
+                self.x_time.append(current_time if realtime_cap else round(i * self.READ_EVERY / fps / 60, 5))
+                frame_image, bboxes, _raw_turb, phase_data = self.process_vial_frame(vial_frame=vial_frame,
+                                                                                     update_od=update_od)
                 self.output_frame = frame_image
+
+                raw_frame = self.draw_bounding_boxes(frame, bboxes, self.contents_model.names, on_raw=True)
 
                 # 5. Optionally display processed frames in real-time.
                 if self.VISUALIZE:
@@ -522,13 +536,12 @@ class HeinSight:
 
                 # 6. Save the output data
                 # Save the processed frame to video file
-                if i == 0:
-                    height, width, _ = frame_image.shape
-                    video_writer = cv2.VideoWriter(output_filename + ".mkv", fourcc, 30, (width, height))
-                if video_writer:
-                    video_writer.write(frame_image)
+
+                # todo
+                video_writer.write(raw_frame)
                 self.output.append(phase_data)
                 self.optimize_stream_output()
+                self.turbidity = _raw_turb
                 self.turbidity_2d.append(_raw_turb)
 
                 # not save output for every frame ~30% faster
@@ -562,11 +575,11 @@ class HeinSight:
         :param model_list: YOLO models list
         """
         name_color_dict = {
-            "Empty": (160, 82, 45),  # Brown
-            "Residue": (255, 165, 0),  # Orange
+            "Empty": (19, 69, 139),  # Brown
+            "Residue": (0, 165, 255),  # Orange
             "Hetero": (255, 0, 255),  # purple
-            "Homo": (255, 0, 0),  # Red
-            "Solid": (0, 0, 255),  # Blue
+            "Homo": (0, 0, 255),  # Red
+            "Solid": (255, 0, 0),  # Blue
         }
         names = [model.names.values() for model in model_list if model is not None]
         names = set(chain.from_iterable(names))
