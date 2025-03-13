@@ -9,7 +9,8 @@ from heinsight import HeinSight
 # uvicorn stream:app --host 0.0.0.0 --port 8000
 
 
-source = 0
+VIDEO_SOURCE = r"C:\Users\User\Downloads\output_raw.mp4"
+# VIDEO_SOURCE = 0
 FRAME_RATE = 5
 DIRECTORY = None
 FILENAME = None
@@ -105,3 +106,14 @@ async def get_last_status():
     status_data = StatusData(status=heinsight.status, data=heinsight.output[-1])
     # print(status_data.dict())
     return JSONResponse(content=status_data.dict())
+
+
+@app.get("/turbidity")
+async def get_turbidity():
+    """Endpoint to return additional data."""
+    if not is_monitoring:
+        return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
+    # status_data = StatusData(status=heinsight.status, data=heinsight.output[-1])
+    # print(status_data.dict())
+    turbidity = heinsight.turbidity
+    return JSONResponse(content={"turbidity": turbidity})
