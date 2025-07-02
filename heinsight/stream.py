@@ -57,11 +57,11 @@ async def start_monitoring(request: Request):
     if video_source is None:
         video_source = VIDEO_SOURCE
     FRAME_RATE = data.get("frame_rate", FRAME_RATE)
-
+    res = data.get("res", (1920, 1080))
     if not is_monitoring:
         current_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         filename = FILENAME or f"stream_{current_time}"
-        heinsight.start_monitoring(video_source, save_directory=DIRECTORY, output_name=filename)
+        heinsight.start_monitoring(video_source, save_directory=DIRECTORY, output_name=filename, res=res, fps=FRAME_RATE)
         is_monitoring = True
         return JSONResponse(content={"message": "Monitoring started."})
     else:

@@ -4,17 +4,23 @@ session = requests.Session()
 
 
 class HeinsightAPI:
-    def __init__(self, address, source=None, fps=10):
+    def __init__(self, address, source=None, fps=10, res=(1920, 1080)):
         self.address = address
         self.time_course_data = []
         self.stream_url = f"{address}/frame"
         self.running = False
         self.source = source
         self.fps = fps
+        self.res = res
 
     def start(self):
         self.running = True
-        return session.post(self.address + '/start', json={"video_source": self.source, "frame_rate": self.fps}).json()
+        return session.post(self.address + '/start',
+                            json={
+                                "video_source": self.source,
+                                "frame_rate": self.fps,
+                                "res": self.res,
+                            }).json()
 
     def stop(self):
         self.running = False
