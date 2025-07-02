@@ -538,7 +538,10 @@ class HeinSight:
                 # Save the processed frame to video file
 
                 # todo
-                video_writer.write(raw_frame)
+                if self.SAVE_PLOT_VIDEO:
+                    video_writer.write(frame_image)
+                else:
+                    video_writer.write(raw_frame)
                 self.output.append(phase_data)
                 self.optimize_stream_output()
                 self.turbidity = _raw_turb
