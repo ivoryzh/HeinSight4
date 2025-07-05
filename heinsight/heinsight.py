@@ -5,8 +5,6 @@ import sys
 import time
 from collections import defaultdict
 
-import utils
-
 sys.path.append(os.path.dirname(__file__))
 
 import threading
@@ -23,8 +21,10 @@ from ultralytics import YOLO
 from ultralytics.data.utils import IMG_FORMATS
 matplotlib.use('Agg')
 
-sys.path.append(os.path.dirname(__file__))
-
+if __package__ is None or __package__ == "":
+    import utils
+else:
+    from . import utils
 
 class HeinSightConfig:
 
@@ -239,11 +239,11 @@ class HeinSight:
         return output, raw_value
 
     @staticmethod
-    def _get_dynamic_font_params(img_height, base_height=200, base_font_scale=0.5, base_thickness=1):
+    def _get_dynamic_font_params(img_height, base_height=200, base_font_scale=1, base_thickness=2):
         scale_factor = img_height / base_height
         font_scale = base_font_scale * scale_factor
-        thickness = max(1, int(base_thickness * scale_factor))
-        return font_scale, thickness
+        text_thickness = max(2, int(base_thickness * scale_factor))
+        return font_scale, text_thickness
 
     def draw_bounding_boxes(self, image, bboxes, class_names, thickness=None, text_right=False, on_raw=False):
         """Draws bounding boxes on the image."""
@@ -251,7 +251,7 @@ class HeinSight:
         height = image.shape[1]
         font_scale, text_thickness = self._get_dynamic_font_params(height)
         margin = 2
-        thickness = thickness or max(1, int(height / 200))
+        thickness = thickness or max(2, int(height / 200))
         for rect in bboxes:
             x1, y1, x2, y2, _, class_id = map(int, rect)
             class_name = class_names[class_id]

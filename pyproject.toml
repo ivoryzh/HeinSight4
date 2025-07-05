@@ -1,9 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "heinsight"
-version = "0.1.0"
-description = "HeinSight4.0 is a computer vision system designed for real-time monitoring of chemical behavior. It detects and classifies chemical phases (air, liquid, solid) within vessels, enabling automated observation of common experimental behaviors such as dissolution, melting, suspension, mixing, settling, and more. It also extracts additional visual cues like turbidity and color through image analysis."
+version = "0.4.0" # Incremented version for new packaging
+description = "A Computer Vision System for Dynamic Monitoring of Chemical Experiments"
 readme = "README.md"
 requires-python = ">=3.8"
+
+# Core dependencies for the lightweight client installation
 dependencies = [
-    "ultralytics>=8.3.162",
+    "requests"
 ]
+
+[project.scripts]
+heinsight-server = "heinsight.stream:main"
+
+# Optional dependencies for the full server installation
+[project.optional-dependencies]
+server = [
+    "ultralytics",
+    "fastapi",
+    "uvicorn"
+]
+
+# Add this section to explicitly find the 'heinsight' package
+[tool.setuptools.packages.find]
+where = ["."]  # look in the root directory
+include = ["heinsight*"]  # include the heinsight package and its sub-packages
+exclude = ["labels*"]  # exclude the labels directory
+
+# Add this section to include your models
+[tool.setuptools.package-data]
+heinsight = ["models/*.pt"]

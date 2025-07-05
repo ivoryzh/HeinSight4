@@ -1,11 +1,21 @@
+import argparse
 import asyncio
+import importlib
+import os
+import sys
 from datetime import datetime
 from typing import Union, Optional, Dict
 
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
-from heinsight import HeinSight
+
+if __package__ is None or __package__ == "":
+    from heinsight import HeinSight
+else:
+    from .heinsight import HeinSight
+
 
 # uvicorn stream:app --host 0.0.0.0 --port 8000
 class HeinSightConfig:
@@ -35,10 +45,9 @@ class HeinSightConfig:
     DEFAULT_OUTPUT_NAME = None
     STREAM_DATA_SIZE = 1000
 
-VIDEO_SOURCE = r"C:\Users\User\Downloads\output_raw.mp4"
-heinsight = HeinSight(vial_model_path="models/best_vessel.pt",
-                      contents_model_path="models/best_content.pt",
-                      config=HeinSightConfig())
+# heinsight = HeinSight(vial_model_path="models/best_vessel.pt",
+#                       contents_model_path="models/best_content.pt",
+#                       config=HeinSightConfig())
 REFRESH_RATE = 20
 
 # Initialize FastAPI app
@@ -150,18 +159,59 @@ async def get_last_status():
     # print(status_data.dict())
     return JSONResponse(content=status_data.model_dump())
 
-#
-# @app.get("/turbidity")
-# async def get_turbidity():
-#     """Endpoint to return additional data."""
-#     if not is_monitoring:
-#         return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
-#     # status_data = StatusData(status=heinsight.status, data=heinsight.output[-1])
-#     # print(status_data.dict())
-#     turbidity = heinsight.turbidity
-#     return JSONResponse(content={"turbidity": turbidity})
+def main():
+    """
+    Main function to run the FastAPI server.
+    Initializes HeinSight with default or user-provided models.
+    """
+    # 1. Check if server dependencies are installed
+    try:
+        import ultralytics
+    except ImportError:
+        print("Error: Server dependencies are not installed.", file=sys.stderr)
+        print("To run the server, please install the full package with:", file=sys.stderr)
+        print("  pip install 'heinsight[server]'", file=sys.stderr)
+        sys.exit(1)
+    # --- END OF THE CHECK ---
+
+    global heinsight
+    parser = argparse.ArgumentParser(description="HeinSight FastAPI Server")
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Host address to bind to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
+    parser.add_argument("--vial-model", type=str, default=None, help="Path to a custom vessel detection model.")
+    parser.add_argument("--contents-model", type=str, default=None, help="Path to a custom contents detection model.")
+    args = parser.parse_args()
+
+    vial_model_path = args.vial_model
+    contents_model_path = args.contents_model
+
+    try:
+        # If user does not provide a path, load the default model from the package
+        if not vial_model_path or not contents_model_path:
+            print("Loading default models...")
+            with importlib.resources.path('heinsight.models', 'best_vessel.pt') as vessel_path, \
+                    importlib.resources.path('heinsight.models', 'best_content.pt') as content_path:
+                vial_model_path = vial_model_path or str(vessel_path)
+                contents_model_path = contents_model_path or str(content_path)
+
+        else:
+            print("Loading custom models from provided paths...")
+        print(f"Initializing with vial model: {vial_model_path}")
+        print(f"Initializing with contents model: {contents_model_path}")
+        # Initialize HeinSight with the determined model paths
+        heinsight = HeinSight(
+            vial_model_path=vial_model_path,
+            contents_model_path=contents_model_path,
+            config=HeinSightConfig()
+        )
+
+        uvicorn.run(app, host=args.host, port=args.port)
+
+    except FileNotFoundError:
+        print("Error: A specified model file was not found. Please check the paths.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()
