@@ -2,7 +2,10 @@
 HeinSight4.0 is a computer vision system designed for real-time monitoring of chemical behavior. It detects and classifies chemical phases (air, liquid, solid) within vessels, enabling automated observation of common experimental behaviors such as dissolution, melting, suspension, mixing, settling, and more. It also extracts additional visual cues like turbidity and color through image analysis.
 
 **This model was tested on chemistry within vials and EasyMax reactor.**
-
+> 💡 **Installation is now available with**  
+> `pip install heinsight`  
+>  
+> 👉 Try it out with the [HeinSight Demo app](https://huggingface.co/spaces/ivoryzhang/HeinSight-Demo).
 ## How It Works?
 HeinSight4.0 employs a hierarchical detection approach by training two separate models **(Figure 1)**:
 - Vessel Detection Model: Identifies transparent laboratory equipment (e.g., reactors and vessels) and marks them as "vessels."
@@ -11,13 +14,13 @@ HeinSight4.0 employs a hierarchical detection approach by training two separate 
 The output of the vessel detection model serves as input for the chemical detection model, enabling phase-specific analysis. Both models were fine-tuned from YOLOv8 pretrained on the COCO dataset and adapted to our customized datasets.
 Details on models training can be found here: https://zenodo.org/records/15605098. 
 
-![](docs/model_method.png)
+![](https://gitlab.com/heingroup/heinsight4.0/-/raw/main/docs/model_method.png)
 **Figure 1. hierarchical detection approach of HeinSight4.0.** 
 
 
 
 **Table 1. Classes names for chemical detection model**. 
-![](docs/classes.png)
+![](https://gitlab.com/heingroup/heinsight4.0/-/raw/main/docs/classes.png)
 
 
 ## Datasets
@@ -35,7 +38,7 @@ This dataset enables monitoring of key experimental behaviors, including dissolu
 Dataset can be accessed at https://zenodo.org/records/14630321
 
 
-![](docs/dataset.png)
+![](https://gitlab.com/heingroup/heinsight4.0/-/raw/main/docs/dataset.png)
 
 **Figure 2. Overview of diverse images in the training dataset used for the chemical detection model**
 
@@ -66,8 +69,8 @@ sudo apt install -y python3-picamera2
 ```
 
 ## Usage
-### Quickstart with [demo image](examples/demo.png) (image mode)
-Output: heinsigh_output/[output.png](examples/demo_output.png)
+### Quickstart with [demo image](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/examples/demo.png) (image mode)
+Output: heinsigh_output/[output.png](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/examples/demo_output.png)
 ```commandline
 python heinsight.py
 ```
@@ -102,7 +105,7 @@ heinsight.run("path/to/video.mp4",
 ```
 
 ### Stream
-Stream with a FastAPI app, in [stream.py](heinsight/stream.py)
+Stream with a FastAPI app, in [stream.py](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/heinsight/stream.py)
 
 ```python
 from heinsight import HeinSight

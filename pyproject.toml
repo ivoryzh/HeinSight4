@@ -4,32 +4,33 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "heinsight"
-version = "0.4.0" # Incremented version for new packaging
+version = "0.4.1"
 description = "A Computer Vision System for Dynamic Monitoring of Chemical Experiments"
 readme = "README.md"
 requires-python = ">=3.8"
 
-# Core dependencies for the lightweight client installation
+# Default dependencies are now the full server installation.
+# pip install heinsight
 dependencies = [
-    "requests"
-]
-
-[project.scripts]
-heinsight-server = "heinsight.stream:main"
-
-# Optional dependencies for the full server installation
-[project.optional-dependencies]
-server = [
+    "requests",
     "ultralytics",
     "fastapi",
     "uvicorn"
 ]
 
-# Add this section to explicitly find the 'heinsight' package
+[project.scripts]
+heinsight-server = "heinsight.stream:main"
+
+# Optional "api" dependencies for the lightweight client.
+# pip install heinsight[api]
+[project.optional-dependencies]
+api = [
+    "requests"
+]
+
 [tool.setuptools.packages.find]
-where = ["."]  # look in the root directory
-include = ["heinsight*"]  # include the heinsight package and its sub-packages
-exclude = ["labels*"]  # exclude the labels directory
+where = ["."]
+include = ["heinsight*"]
 
 # Add this section to include your models
 [tool.setuptools.package-data]
