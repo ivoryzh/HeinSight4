@@ -547,7 +547,5 @@ if __name__ == "__main__":
     heinsight = HeinSight(vial_model_path=r"models/best_vessel.pt",
                           contents_model_path=r"models/best_content.pt", )
     output = heinsight.run(r"../examples/demo.png")
-    output = heinsight.run(r"../examples/demo.png")
-    # heinsight.run("C:\Users\User\Downloads\demo.png")
-    # heinsight.run(r"C:\Users\User\Downloads\WIN_20240620_11_28_09_Pro.mp4")
+
 

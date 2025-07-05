@@ -96,5 +96,5 @@ class HeinsightAPI:
 
 
 if __name__ == "__main__":
-    heinsight = HeinsightAPI("http://localhost:8000", source="/Users/ivoryzhang/Downloads/camera_0_20250630_230403.mp4", res=(1920, 1080))
+    heinsight = HeinsightAPI("http://localhost:8000", source=0, res=(1920, 1080))
     print(heinsight)
