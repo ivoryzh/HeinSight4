@@ -282,7 +282,8 @@ class HeinSight:
         ax0, ax1, ax2, ax3 = self.axs.flat
 
         # top left - vial frame and bounding boxes
-        ax0.imshow(np.flipud(image), origin='lower')
+        img_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        ax0.imshow(np.flipud(img_rgb), origin='lower')
         if title:
             ax0.set_title(title)
 
