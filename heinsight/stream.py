@@ -1,25 +1,54 @@
 import asyncio
 from datetime import datetime
+from typing import Union, Optional, Dict
 
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from heinsight import HeinSight
 
 # uvicorn stream:app --host 0.0.0.0 --port 8000
+class HeinSightConfig:
 
+    """Configuration for the HeinSight system."""
+    NUM_ROWS = -1
+    VISUALIZE = False
+    INCLUDE_BB = True
+    SAVE_PLOT_VIDEO = False
+    READ_EVERY = 1
+    UPDATE_EVERY = 5
+    LIQUID_CONTENT = ["Homo", "Hetero"]
+    CAP_RATIO = 0.3
+    STATUS_RULE = 0.7
+    NMS_RULES = {
+        ("Homo", "Hetero"): 0.2,
+        ("Hetero", "Residue"): 0.2,
+        ("Solid", "Residue"): 0.2,
+        ("Empty", "Residue"): 0.2,
+    }
+    DEFAULT_VIAL_LOCATION = None
+    DEFAULT_VIAL_HEIGHT = None
+    DEFAULT_FPS = 30
+    DEFAULT_RESOLUTION = (1920, 1080)
+
+    DEFAULT_OUTPUT_DIR = './heinsight_output'
+    DEFAULT_OUTPUT_NAME = None
+    STREAM_DATA_SIZE = 1000
 
 VIDEO_SOURCE = r"C:\Users\User\Downloads\output_raw.mp4"
-# VIDEO_SOURCE = 0
-FRAME_RATE = 5
-DIRECTORY = None
-FILENAME = None
 heinsight = HeinSight(vial_model_path="models/best_vessel.pt",
-                      contents_model_path="models/best_content.pt")
-heinsight.VISUALIZE = False
+                      contents_model_path="models/best_content.pt",
+                      config=HeinSightConfig())
+REFRESH_RATE = 20
+
 # Initialize FastAPI app
 app = FastAPI()
 
+class StartMonitoringRequest(BaseModel):
+    """Request model for starting monitoring"""
+    video_source: Union[str, int] = Field(..., description="Video source (file path, camera index, or 'picam')")
+    frame_rate: int = Field(30, description="Frame rate for processing")
+    res: tuple[int, int] = Field((1920, 1080), description="Video resolution")
 
 # Placeholder for additional data
 class FrameData(BaseModel):
@@ -48,20 +77,22 @@ async def shutdown():
 
 
 @app.post("/start")
-async def start_monitoring(request: Request):
+async def start_monitoring(request: StartMonitoringRequest):
     """Endpoint to start monitoring."""
     global heinsight, is_monitoring, FRAME_RATE
 
-    data = await request.json()
-    video_source = data.get("video_source", VIDEO_SOURCE)
+    video_source = request.video_source
+    fps = request.frame_rate
+    res = request.res
+
     if video_source is None:
-        video_source = VIDEO_SOURCE
-    FRAME_RATE = data.get("frame_rate", FRAME_RATE)
-    res = data.get("res", (1920, 1080))
+        return JSONResponse(content={"message": "Video source is required."}, status_code=400)
+    fps = fps or 20
     if not is_monitoring:
         current_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        filename = FILENAME or f"stream_{current_time}"
-        heinsight.start_monitoring(video_source, save_directory=DIRECTORY, output_name=filename, res=res, fps=FRAME_RATE)
+        filename = heinsight.config.DEFAULT_OUTPUT_NAME or f"stream_{current_time}"
+        heinsight.start_monitoring(video_source, res=res, fps=fps,
+                                   save_directory=heinsight.config.DEFAULT_OUTPUT_DIR, output_name=filename)
         is_monitoring = True
         return JSONResponse(content={"message": "Monitoring started."})
     else:
@@ -85,7 +116,7 @@ async def get_frame():
     """Endpoint to stream video frames."""
     if not is_monitoring:
         return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
-    await asyncio.sleep(1 / FRAME_RATE)
+    await asyncio.sleep(1 / REFRESH_RATE)
     return StreamingResponse(heinsight.generate_frame(), media_type='multipart/x-mixed-replace; boundary=frame')
 
 
@@ -95,25 +126,42 @@ async def get_data():
     if not is_monitoring:
         return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
     frame_data = FrameData(hsdata=heinsight.stream_output)
-    return JSONResponse(content=frame_data.dict())
+    return JSONResponse(content=frame_data.model_dump())
 
+@app.get("/rolling_data")
+async def get_rolling_data():
+    """Endpoint to return additional data."""
+    if not is_monitoring:
+        return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
+    if len(heinsight.output) < 10:
+        frame_data = FrameData(hsdata=heinsight.output)
+    else:
+        frame_data = FrameData(hsdata=heinsight.output[-10:])
+    return JSONResponse(content=frame_data.model_dump())
 
 @app.get("/current_status")
 async def get_last_status():
     """Endpoint to return additional data."""
     if not is_monitoring:
         return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
+    if len(heinsight.output) == 0:
+        return JSONResponse(content={"error": "No data available."}, status_code=400)
     status_data = StatusData(status=heinsight.status, data=heinsight.output[-1])
     # print(status_data.dict())
-    return JSONResponse(content=status_data.dict())
+    return JSONResponse(content=status_data.model_dump())
+
+#
+# @app.get("/turbidity")
+# async def get_turbidity():
+#     """Endpoint to return additional data."""
+#     if not is_monitoring:
+#         return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
+#     # status_data = StatusData(status=heinsight.status, data=heinsight.output[-1])
+#     # print(status_data.dict())
+#     turbidity = heinsight.turbidity
+#     return JSONResponse(content={"turbidity": turbidity})
 
 
-@app.get("/turbidity")
-async def get_turbidity():
-    """Endpoint to return additional data."""
-    if not is_monitoring:
-        return JSONResponse(content={"error": "Monitoring is not active."}, status_code=400)
-    # status_data = StatusData(status=heinsight.status, data=heinsight.output[-1])
-    # print(status_data.dict())
-    turbidity = heinsight.turbidity
-    return JSONResponse(content={"turbidity": turbidity})
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

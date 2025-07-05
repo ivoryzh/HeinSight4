@@ -1,0 +1,9 @@
+[project]
+name = "heinsight"
+version = "0.1.0"
+description = "HeinSight4.0 is a computer vision system designed for real-time monitoring of chemical behavior. It detects and classifies chemical phases (air, liquid, solid) within vessels, enabling automated observation of common experimental behaviors such as dissolution, melting, suspension, mixing, settling, and more. It also extracts additional visual cues like turbidity and color through image analysis."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "ultralytics>=8.3.162",
+]
