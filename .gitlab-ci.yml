@@ -5,6 +5,9 @@ stages:
 
 deploy:
   stage: deploy
+  variables:
+    TWINE_USERNAME: $PYPI_USERNAME
+    TWINE_PASSWORD: $PYPI_PASSWORD
   image: python:3.9
   before_script:
     - pip install build twine
