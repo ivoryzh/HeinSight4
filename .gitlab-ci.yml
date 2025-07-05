@@ -1,0 +1,15 @@
+# add test later
+
+stages:
+  - deploy
+
+deploy:
+  stage: deploy
+  image: python:3.9
+  before_script:
+    - pip install build twine
+  script:
+    - python -m build
+    - twine upload --non-interactive dist/*
+  only:
+    - tags
