@@ -9,6 +9,8 @@ from typing import Union, Optional, Dict
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+
 from pydantic import BaseModel, Field
 
 if __package__ is None or __package__ == "":
@@ -52,6 +54,14 @@ REFRESH_RATE = 20
 
 # Initialize FastAPI app
 app = FastAPI()
+# Add CORS middleware to allow cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class StartMonitoringRequest(BaseModel):
     """Request model for starting monitoring"""
