@@ -4,7 +4,7 @@ import importlib
 import os
 import sys
 from datetime import datetime
-from typing import Union, Optional, Dict
+from typing import Union, Optional, Dict, Tuple
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -65,7 +65,7 @@ class StartMonitoringRequest(BaseModel):
     """Request model for starting monitoring"""
     video_source: Union[str, int] = Field(..., description="Video source (file path, camera index, or 'picam')")
     frame_rate: int = Field(30, description="Frame rate for processing")
-    res: tuple[int, int] = Field((1920, 1080), description="Video resolution")
+    res: Tuple[int, int] = Field((1920, 1080), description="Video resolution")
 
 # Placeholder for additional data
 class FrameData(BaseModel):
@@ -186,7 +186,7 @@ def main():
     contents_model_path = args.contents_model
     output_dir = args.save_directory
     config = HeinSightConfig()
-    config.DEFAULT_OUTPUT_DIR = output_dir
+    config.DEFAULT_OUTPUT_DIR = output_dir or config.DEFAULT_OUTPUT_DIR
 
     try:
         # If user does not provide a path, load the default model from the package
