@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeinSight Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .server-controls {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .server-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .server-input input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 14px;
+        }
+
+        .server-input button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .server-input button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .server-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .server-tag {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .server-tag.active {
+            background: #4CAF50;
+        }
+
+        .server-tag .remove-btn {
+            margin-left: 10px;
+            cursor: pointer;
+            color: #ff6b6b;
+            font-weight: bold;
+        }
+
+        .servers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            max-width: 1400px;
+            gap: 30px;
+        }
+
+        /* Ensure max 3 columns */
+        @media (min-width: 1400px) {
+            .servers-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .server-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .server-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .server-title {
+            font-size: 1.4em;
+            font-weight: bold;
+        }
+
+        .server-status {
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .server-status.online {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .server-status.offline {
+            background: #f44336;
+            color: white;
+        }
+
+        .server-status.monitoring {
+            background: #2196F3;
+            color: white;
+        }
+
+        .server-status.stopped {
+            background: #FF9800;
+            color: white;
+        }
+
+        .monitor-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .monitor-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .start-monitor-btn {
+            background: #4CAF50;
+        }
+
+        .start-monitor-btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+
+        .stop-monitor-btn {
+            background: #f44336;
+        }
+
+        .stop-monitor-btn:hover {
+            background: #da190b;
+            transform: translateY(-1px);
+        }
+
+        .monitor-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .video-source-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .video-source-input input, .video-source-input select {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 12px;
+        }
+
+        .stream-container {
+            position: relative;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stream-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .stream-placeholder {
+            color: #888;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            height: 350px;
+            position: relative;
+        }
+
+        .chart-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .chart-controls button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #2196F3;
+            color: white;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+
+        .chart-controls button:hover {
+            background: #1976D2;
+            transform: translateY(-1px);
+        }
+
+        .chart-controls button.active {
+            background: #4CAF50;
+        }
+
+        .current-values {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .value-card {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .value-card .label {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-bottom: 3px;
+        }
+
+        .value-card .value {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .error-message {
+            background: #f44336;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .success-message {
+            background: #4CAF50;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .servers-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .current-values {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <h1>🔬 HeinSight Dashboard</h1>
+
+        <div class="server-controls">
+            <div class="server-input">
+                <input type="text" id="serverUrl" placeholder="Enter server URL (e.g., http://localhost:8000)" value="http://localhost:8000">
+                <input type="text" id="serverName" placeholder="Server name (optional)">
+                <button onclick="addServer()">Add Server</button>
+            </div>
+            <div class="server-list" id="serverList">
+                <!-- Server tags will be added here -->
+            </div>
+        </div>
+
+        <div class="servers-grid" id="serversGrid">
+            <!-- Server panels will be added here -->
+        </div>
+    </div>
+
+    <script>
+        class HeinSightDashboard {
+            constructor() {
+                this.servers = new Map();
+                this.updateIntervals = new Map();
+                this.charts = new Map();
+                this.init();
+            }
+
+            init() {
+                // Dashboard initialized
+            }
+
+            addServer(url, name = null) {
+                const serverId = this.generateServerId();
+                const serverName = name || `Server ${serverId}`;
+
+                const server = {
+                    id: serverId,
+                    url: url.replace(/\/$/, ''), // Remove trailing slash
+                    name: serverName,
+                    status: 'offline',
+                    monitoring: false,
+                    serverMonitoring: false, // Server-side monitoring status
+                    data: [],
+                    lastUpdate: null,
+                    chart: null,
+                    activeMetrics: ['turbidity', 'color'],
+                    videoSource: '0', // Default camera
+                    frameRate: 30,
+                    resolution: [1920, 1080]
+                };
+
+                this.servers.set(serverId, server);
+                this.updateServerList();
+                this.updateServersGrid();
+                this.checkServerStatus(serverId);
+            }
+
+            removeServer(serverId) {
+                this.stopDataMonitoring(serverId);
+                this.stopServerMonitoring(serverId);
+                if (this.charts.has(serverId)) {
+                    this.charts.get(serverId).destroy();
+                    this.charts.delete(serverId);
+                }
+                this.servers.delete(serverId);
+                this.updateServerList();
+                this.updateServersGrid();
+            }
+
+            generateServerId() {
+                return 'server_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            }
+
+            updateServerList() {
+                const serverList = document.getElementById('serverList');
+                serverList.innerHTML = '';
+
+                this.servers.forEach((server, id) => {
+                    const tag = document.createElement('div');
+                    tag.className = `server-tag ${server.status}`;
+                    tag.innerHTML = `
+                        ${server.name} (${server.url})
+                        <span class="remove-btn" onclick="dashboard.removeServer('${id}')">×</span>
+                    `;
+                    serverList.appendChild(tag);
+                });
+            }
+
+            updateServersGrid() {
+                const grid = document.getElementById('serversGrid');
+                grid.innerHTML = '';
+
+                this.servers.forEach((server, id) => {
+                    const panel = this.createServerPanel(server);
+                    grid.appendChild(panel);
+                });
+            }
+
+            createServerPanel(server) {
+                const panel = document.createElement('div');
+                panel.className = 'server-panel';
+                panel.innerHTML = `
+                    <div class="server-header">
+                        <div class="server-title">${server.name}</div>
+                        <div class="server-status ${server.status}" id="status-${server.id}">
+                            ${server.status.toUpperCase()}
+                        </div>
+                    </div>
+
+                    <div class="video-source-input">
+                        <input type="text" id="videoSource-${server.id}" placeholder="Video source (0, 1, 'picam', or file path)" value="${server.videoSource}">
+                        <input type="number" id="frameRate-${server.id}" placeholder="FPS" value="${server.frameRate}" min="1" max="60">
+                        <select id="resolution-${server.id}">
+                            <option value="1920,1080">1920x1080</option>
+                            <option value="1280,720">1280x720</option>
+                            <option value="640,480">640x480</option>
+                        </select>
+                    </div>
+
+                    <div class="monitor-controls">
+                        <button class="monitor-btn start-monitor-btn" id="startMonitor-${server.id}"
+                                onclick="dashboard.startServerMonitoring('${server.id}')"
+                                ${server.serverMonitoring ? 'disabled' : ''}>
+                            Start Monitor
+                        </button>
+                        <button class="monitor-btn stop-monitor-btn" id="stopMonitor-${server.id}"
+                                onclick="dashboard.stopServerMonitoring('${server.id}')"
+                                ${!server.serverMonitoring ? 'disabled' : ''}>
+                            Stop Monitor
+                        </button>
+                        <button class="monitor-btn start-monitor-btn" id="startData-${server.id}"
+                                onclick="dashboard.startDataMonitoring('${server.id}')"
+                                ${server.monitoring ? 'disabled' : ''}>
+                            Start Data
+                        </button>
+                        <button class="monitor-btn stop-monitor-btn" id="stopData-${server.id}"
+                                onclick="dashboard.stopDataMonitoring('${server.id}')"
+                                ${!server.monitoring ? 'disabled' : ''}>
+                            Stop Data
+                        </button>
+                    </div>
+
+                    <div id="message-${server.id}" style="display: none;"></div>
+
+                    <div class="stream-container">
+                        <img id="stream-${server.id}" src="" alt="Stream" style="display: none;">
+                        <div class="stream-placeholder" id="placeholder-${server.id}">
+                            ${server.status === 'online' ? 'Configure and start monitoring' : 'Server offline'}
+                        </div>
+                    </div>
+
+                    <div class="current-values" id="values-${server.id}">
+                        <!-- Values will be updated here -->
+                    </div>
+
+                    <div class="chart-controls">
+                        <button class="active" onclick="dashboard.toggleMetric('${server.id}', 'turbidity')">Turbidity</button>
+                        <button class="active" onclick="dashboard.toggleMetric('${server.id}', 'color')">Color</button>
+                        <button onclick="dashboard.toggleMetric('${server.id}', 'turbidity_1')">Turbidity 1</button>
+                        <button onclick="dashboard.toggleMetric('${server.id}', 'turbidity_2')">Turbidity 2</button>
+                        <button onclick="dashboard.toggleMetric('${server.id}', 'volume_1')">Volume 1</button>
+                        <button onclick="dashboard.toggleMetric('${server.id}', 'volume_2')">Volume 2</button>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="chart-${server.id}"></canvas>
+                    </div>
+                `;
+
+                // Initialize chart after panel is added to DOM
+                setTimeout(() => {
+                    this.initChart(server.id);
+                }, 100);
+
+                return panel;
+            }
+
+            async startServerMonitoring(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                // Get configuration values
+                const videoSourceInput = document.getElementById(`videoSource-${serverId}`);
+                const frameRateInput = document.getElementById(`frameRate-${serverId}`);
+                const resolutionSelect = document.getElementById(`resolution-${serverId}`);
+
+                let videoSource = videoSourceInput.value.trim();
+                const frameRate = parseInt(frameRateInput.value) || 30;
+                const resolutionValue = resolutionSelect.value.split(',').map(Number);
+
+                // Convert video source to appropriate type
+                if (videoSource === 'picam') {
+                    // Keep as string for picam
+                } else if (!isNaN(videoSource)) {
+                    videoSource = parseInt(videoSource);
+                }
+
+                const requestBody = {
+                    video_source: videoSource,
+                    frame_rate: frameRate,
+                    res: resolutionValue
+                };
+
+                try {
+                    this.showMessage(serverId, 'Starting monitoring...', 'info');
+
+                    const response = await fetch(`${server.url}/start`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        server.serverMonitoring = true;
+                        server.videoSource = videoSource;
+                        server.frameRate = frameRate;
+                        server.resolution = resolutionValue;
+                        this.updateMonitorButtons(serverId);
+                        this.updateServerStatus(serverId);
+                        this.showMessage(serverId, 'Monitoring started successfully!', 'success');
+                    } else {
+                        this.showMessage(serverId, `Error: ${result.message || 'Failed to start monitoring'}`, 'error');
+                    }
+                } catch (error) {
+                    this.showMessage(serverId, `Error: ${error.message}`, 'error');
+                }
+            }
+
+            async stopServerMonitoring(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                try {
+                    this.showMessage(serverId, 'Stopping monitoring...', 'info');
+
+                    const response = await fetch(`${server.url}/stop`, {
+                        method: 'GET'
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        server.serverMonitoring = false;
+                        this.updateMonitorButtons(serverId);
+                        this.updateServerStatus(serverId);
+                        this.showMessage(serverId, 'Monitoring stopped successfully!', 'success');
+
+                        // Also stop data monitoring if it's running
+                        if (server.monitoring) {
+                            this.stopDataMonitoring(serverId);
+                        }
+                    } else {
+                        this.showMessage(serverId, `Error: ${result.message || 'Failed to stop monitoring'}`, 'error');
+                    }
+                } catch (error) {
+                    this.showMessage(serverId, `Error: ${error.message}`, 'error');
+                }
+            }
+
+            startDataMonitoring(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                if (!server.serverMonitoring) {
+                    this.showMessage(serverId, 'Please start server monitoring first!', 'error');
+                    return;
+                }
+
+                server.monitoring = true;
+                this.updateMonitorButtons(serverId);
+                this.updateServerStatus(serverId);
+
+                // Start data monitoring loop
+                const intervalId = setInterval(() => {
+                    if (server.monitoring) {
+                        this.updateStream(serverId);
+                        this.updateData(serverId);
+                        this.checkServerStatus(serverId);
+                    }
+                }, 2000);
+
+                this.updateIntervals.set(serverId, intervalId);
+                this.showMessage(serverId, 'Data monitoring started!', 'success');
+
+                // Initial update
+                this.checkServerStatus(serverId);
+            }
+
+            stopDataMonitoring(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                server.monitoring = false;
+                this.updateMonitorButtons(serverId);
+                this.updateServerStatus(serverId);
+
+                // Clear monitoring loop
+                if (this.updateIntervals.has(serverId)) {
+                    clearInterval(this.updateIntervals.get(serverId));
+                    this.updateIntervals.delete(serverId);
+                }
+
+                // Hide stream
+                const img = document.getElementById(`stream-${serverId}`);
+                const placeholder = document.getElementById(`placeholder-${serverId}`);
+                if (img && placeholder) {
+                    img.style.display = 'none';
+                    placeholder.style.display = 'block';
+                    placeholder.textContent = server.status === 'online' ? 'Configure and start monitoring' : 'Server offline';
+                }
+
+                this.showMessage(serverId, 'Data monitoring stopped!', 'success');
+            }
+
+            showMessage(serverId, message, type) {
+                const messageElement = document.getElementById(`message-${serverId}`);
+                if (!messageElement) return;
+
+                messageElement.textContent = message;
+                messageElement.className = `${type}-message`;
+                messageElement.style.display = 'block';
+
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    messageElement.style.display = 'none';
+                }, 3000);
+            }
+
+            updateMonitorButtons(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                const startMonitorBtn = document.getElementById(`startMonitor-${serverId}`);
+                const stopMonitorBtn = document.getElementById(`stopMonitor-${serverId}`);
+                const startDataBtn = document.getElementById(`startData-${serverId}`);
+                const stopDataBtn = document.getElementById(`stopData-${serverId}`);
+
+                if (startMonitorBtn && stopMonitorBtn && startDataBtn && stopDataBtn) {
+                    startMonitorBtn.disabled = server.serverMonitoring;
+                    stopMonitorBtn.disabled = !server.serverMonitoring;
+                    startDataBtn.disabled = server.monitoring || !server.serverMonitoring;
+                    stopDataBtn.disabled = !server.monitoring;
+                }
+            }
+
+            initChart(serverId) {
+                const canvas = document.getElementById(`chart-${serverId}`);
+                if (!canvas) return;
+
+                const ctx = canvas.getContext('2d');
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Turbidity',
+                                data: [],
+                                borderColor: '#2196F3',
+                                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Color',
+                                data: [],
+                                borderColor: '#FF9800',
+                                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Turbidity 1',
+                                data: [],
+                                borderColor: '#4CAF50',
+                                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1,
+                                hidden: true
+                            },
+                            {
+                                label: 'Turbidity 2',
+                                data: [],
+                                borderColor: '#9C27B0',
+                                backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1,
+                                hidden: true
+                            },
+                            {
+                                label: 'Volume 1',
+                                data: [],
+                                borderColor: '#F44336',
+                                backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1,
+                                hidden: true
+                            },
+                            {
+                                label: 'Volume 2',
+                                data: [],
+                                borderColor: '#607D8B',
+                                backgroundColor: 'rgba(96, 125, 139, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                tension: 0.1,
+                                hidden: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Time'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Value'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            }
+                        }
+                    }
+                });
+
+                this.charts.set(serverId, chart);
+            }
+
+            toggleMetric(serverId, metric) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                const index = server.activeMetrics.indexOf(metric);
+                if (index > -1) {
+                    server.activeMetrics.splice(index, 1);
+                } else {
+                    server.activeMetrics.push(metric);
+                }
+
+                // Update button appearance
+                const panel = document.querySelector(`#chart-${serverId}`).closest('.server-panel');
+                const button = panel.querySelector(`button[onclick*="'${metric}'"]`);
+                button.classList.toggle('active');
+
+                // Update chart visibility
+                const chart = this.charts.get(serverId);
+                if (chart) {
+                    const datasetIndex = this.getDatasetIndex(metric);
+                    chart.setDatasetVisibility(datasetIndex, server.activeMetrics.includes(metric));
+                    chart.update();
+                }
+            }
+
+            getDatasetIndex(metric) {
+                const mapping = {
+                    'turbidity': 0,
+                    'color': 1,
+                    'turbidity_1': 2,
+                    'turbidity_2': 3,
+                    'volume_1': 4,
+                    'volume_2': 5
+                };
+                return mapping[metric] || 0;
+            }
+
+            async checkServerStatus(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                try {
+                    const response = await fetch(`${server.url}/data`, {
+                        method: 'GET',
+                        timeout: 5000
+                    });
+
+                    if (response.ok) {
+                        server.status = server.monitoring ? 'monitoring' : 'online';
+                    } else {
+                        server.status = 'offline';
+                        if (server.monitoring) {
+                            this.stopDataMonitoring(serverId);
+                        }
+                    }
+                } catch (error) {
+                    server.status = 'offline';
+                    if (server.monitoring) {
+                        this.stopDataMonitoring(serverId);
+                    }
+                }
+
+                this.updateServerList();
+                this.updateServerStatus(serverId);
+            }
+
+            updateServerStatus(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server) return;
+
+                const statusElement = document.getElementById(`status-${serverId}`);
+                if (statusElement) {
+                    let statusText = server.status.toUpperCase();
+                    let statusClass = server.status;
+
+                    if (server.serverMonitoring && server.monitoring) {
+                        statusText = 'MONITORING';
+                        statusClass = 'monitoring';
+                    } else if (server.serverMonitoring) {
+                        statusText = 'READY';
+                        statusClass = 'online';
+                    }
+
+                    statusElement.textContent = statusText;
+                    statusElement.className = `server-status ${statusClass}`;
+                }
+
+                const placeholder = document.getElementById(`placeholder-${serverId}`);
+                if (placeholder && !server.monitoring) {
+                    placeholder.textContent = server.status === 'online' ? 'Configure and start monitoring' : 'Server offline';
+                }
+            }
+
+            async updateStream(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server || !server.monitoring) return;
+
+                const img = document.getElementById(`stream-${serverId}`);
+                const placeholder = document.getElementById(`placeholder-${serverId}`);
+
+                if (img && placeholder) {
+                    img.src = `${server.url}/frame?t=${Date.now()}`;
+                    img.onload = () => {
+                        img.style.display = 'block';
+                        placeholder.style.display = 'none';
+                    };
+                    img.onerror = () => {
+                        img.style.display = 'none';
+                        placeholder.style.display = 'block';
+                        placeholder.textContent = 'Stream unavailable';
+                    };
+                }
+            }
+
+            async updateData(serverId) {
+                const server = this.servers.get(serverId);
+                if (!server || !server.monitoring) return;
+
+                try {
+                    const response = await fetch(`${server.url}/data`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        server.data = data.hsdata || [];
+                        server.lastUpdate = new Date();
+                        this.updateChart(serverId);
+                        this.updateCurrentValues(serverId);
+                    }
+                } catch (error) {
+                    console.error(`Error updating data for ${server.name}:`, error);
+                }
+            }
+
+            updateChart(serverId) {
+                const server = this.servers.get(serverId);
+                const chart = this.charts.get(serverId);
+                if (!server || !chart || !server.data.length) return;
+
+                const labels = server.data.map(d => {
+                    if (typeof d.time === 'string' && d.time.includes('T')) {
+                        return new Date(d.time).toLocaleTimeString();
+                    }
+                    return d.time;
+                });
+
+                const datasets = chart.data.datasets;
+                datasets[0].data = server.data.map(d => d.turbidity);
+                datasets[1].data = server.data.map(d => d.color);
+                datasets[2].data = server.data.map(d => d.turbidity_1);
+                datasets[3].data = server.data.map(d => d.turbidity_2);
+                datasets[4].data = server.data.map(d => d.volume_1);
+                datasets[5].data = server.data.map(d => d.volume_2);
+
+                chart.data.labels = labels;
+                chart.update('none');
+            }
+
+            updateCurrentValues(serverId) {
+                const server = this.servers.get(serverId);
+                const valuesContainer = document.getElementById(`values-${serverId}`);
+                if (!server || !valuesContainer || !server.data.length) return;
+
+                const latest = server.data[server.data.length - 1];
+                const values = [
+                    { label: 'Turbidity', value: latest.turbidity?.toFixed(2) || 'N/A' },
+                    { label: 'Color', value: latest.color?.toFixed(2) || 'N/A' },
+                    { label: 'Turbidity 1', value: latest.turbidity_1?.toFixed(2) || 'N/A' },
+                    { label: 'Turbidity 2', value: latest.turbidity_2?.toFixed(2) || 'N/A' },
+                    { label: 'Volume 1', value: latest.volume_1?.toFixed(3) || 'N/A' },
+                    { label: 'Volume 2', value: latest.volume_2?.toFixed(3) || 'N/A' }
+                ];
+
+                valuesContainer.innerHTML = values.map(v => `
+                    <div class="value-card">
+                        <div class="label">${v.label}</div>
+                        <div class="value">${v.value}</div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Initialize dashboard
+        const dashboard = new HeinSightDashboard();
+
+        // Global functions
+        function addServer() {
+            const urlInput = document.getElementById('serverUrl');
+            const nameInput = document.getElementById('serverName');
+
+            const url = urlInput.value.trim();
+            const name = nameInput.value.trim();
+
+            if (!url) {
+                alert('Please enter a server URL');
+                return;
+            }
+
+            dashboard.addServer(url, name || null);
+            nameInput.value = '';
+        }
+
+        // Add server on Enter key
+        document.getElementById('serverUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addServer();
+            }
+        });
+
+        document.getElementById('serverName').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addServer();
+            }
+        });
+
+        // Add a default server for testing
+        dashboard.addServer('http://localhost:8000', 'Local Server');
+    </script>
+</body>
+</html>
