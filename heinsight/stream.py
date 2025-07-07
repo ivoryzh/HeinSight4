@@ -47,9 +47,7 @@ class HeinSightConfig:
     DEFAULT_OUTPUT_NAME = None
     STREAM_DATA_SIZE = 1000
 
-# heinsight = HeinSight(vial_model_path="models/best_vessel.pt",
-#                       contents_model_path="models/best_content.pt",
-#                       config=HeinSightConfig())
+
 REFRESH_RATE = 20
 
 # Initialize FastAPI app
@@ -109,7 +107,7 @@ async def start_monitoring(request: StartMonitoringRequest):
     fps = fps or 20
     if not is_monitoring:
         current_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        filename = heinsight.config.DEFAULT_OUTPUT_NAME or f"stream_{current_time}"
+        filename = heinsight.config.DEFAULT_OUTPUT_NAME or f"stream_{video_source}_{current_time}"
         heinsight.start_monitoring(video_source, res=res, fps=fps,
                                    save_directory=heinsight.config.DEFAULT_OUTPUT_DIR, output_name=filename)
         is_monitoring = True
@@ -174,35 +172,34 @@ def main():
     Main function to run the FastAPI server.
     Initializes HeinSight with default or user-provided models.
     """
-    # 1. Check if server dependencies are installed
-    try:
-        import ultralytics
-    except ImportError:
-        print("Error: Server dependencies are not installed.", file=sys.stderr)
-        print("To run the server, please install the full package with:", file=sys.stderr)
-        print("  pip install 'heinsight[server]'", file=sys.stderr)
-        sys.exit(1)
-    # --- END OF THE CHECK ---
-
     global heinsight
     parser = argparse.ArgumentParser(description="HeinSight FastAPI Server")
     parser.add_argument("--host", type=str, default="0.0.0.0", help="Host address to bind to")
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
     parser.add_argument("--vial-model", type=str, default=None, help="Path to a custom vessel detection model.")
     parser.add_argument("--contents-model", type=str, default=None, help="Path to a custom contents detection model.")
+    parser.add_argument("--save-directory", type=str, default=None, help="Path to save videos.")
+
     args = parser.parse_args()
 
     vial_model_path = args.vial_model
     contents_model_path = args.contents_model
+    output_dir = args.save_directory
+    config = HeinSightConfig()
+    config.DEFAULT_OUTPUT_DIR = output_dir
 
     try:
         # If user does not provide a path, load the default model from the package
         if not vial_model_path or not contents_model_path:
             print("Loading default models...")
-            with importlib.resources.path('heinsight.models', 'best_vessel.pt') as vessel_path, \
-                    importlib.resources.path('heinsight.models', 'best_content.pt') as content_path:
-                vial_model_path = vial_model_path or str(vessel_path)
-                contents_model_path = contents_model_path or str(content_path)
+            if __package__ is None or __package__ == "":
+                vial_model_path="models/best_vessel.pt"
+                contents_model_path="models/best_content.pt"
+            else:
+                with importlib.resources.path('heinsight.models', 'best_vessel.pt') as vessel_path, \
+                        importlib.resources.path('heinsight.models', 'best_content.pt') as content_path:
+                    vial_model_path = vial_model_path or str(vessel_path)
+                    contents_model_path = contents_model_path or str(content_path)
 
         else:
             print("Loading custom models from provided paths...")
@@ -212,7 +209,7 @@ def main():
         heinsight = HeinSight(
             vial_model_path=vial_model_path,
             contents_model_path=contents_model_path,
-            config=HeinSightConfig()
+            config=config
         )
 
         uvicorn.run(app, host=args.host, port=args.port)
