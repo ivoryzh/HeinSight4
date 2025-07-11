@@ -1,10 +1,8 @@
 import argparse
 import asyncio
 import importlib
-import os
-import sys
 from datetime import datetime
-from typing import Union, Optional, Dict, Tuple
+from typing import Union, Tuple
 
 import uvicorn
 from fastapi import FastAPI, Request
@@ -14,39 +12,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 if __package__ is None or __package__ == "":
-    from heinsight import HeinSight
+    from heinsight import HeinSight, HeinSightConfig
 else:
-    from .heinsight import HeinSight
+    from .heinsight import HeinSight, HeinSightConfig
 
 
 # uvicorn stream:app --host 0.0.0.0 --port 8000
-class HeinSightConfig:
-
-    """Configuration for the HeinSight system."""
-    NUM_ROWS = -1
-    VISUALIZE = False
-    INCLUDE_BB = True
-    SAVE_PLOT_VIDEO = False
-    READ_EVERY = 1
-    UPDATE_EVERY = 5
-    LIQUID_CONTENT = ["Homo", "Hetero"]
-    CAP_RATIO = 0.3
-    STATUS_RULE = 0.7
-    NMS_RULES = {
-        ("Homo", "Hetero"): 0.2,
-        ("Hetero", "Residue"): 0.2,
-        ("Solid", "Residue"): 0.2,
-        ("Empty", "Residue"): 0.2,
-    }
-    DEFAULT_VIAL_LOCATION = None
-    DEFAULT_VIAL_HEIGHT = None
-    DEFAULT_FPS = 30
-    DEFAULT_RESOLUTION = (1920, 1080)
-
-    DEFAULT_OUTPUT_DIR = './heinsight_output'
-    DEFAULT_OUTPUT_NAME = None
-    STREAM_DATA_SIZE = 1000
-
 
 REFRESH_RATE = 20
 
@@ -178,15 +149,45 @@ def main():
     parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
     parser.add_argument("--vial-model", type=str, default=None, help="Path to a custom vessel detection model.")
     parser.add_argument("--contents-model", type=str, default=None, help="Path to a custom contents detection model.")
+
+    # Configuration file
+    parser.add_argument("--config", type=str, default=None, help="Path to configuration file (JSON or YAML)")
+
+    # Individual configuration parameters (override config file)
+    parser.add_argument("--save-plot-video", type=bool, default=None, help="Save plot video")
+    parser.add_argument("--read-every", type=int, default=None, help="Read every N frames")
+    parser.add_argument("--update-every", type=int, default=None, help="Update every N frames")
+    parser.add_argument("--cap-ratio", type=float, default=None, help="Cap ratio threshold")
+    parser.add_argument("--default-fps", type=int, default=None, help="Default FPS")
+    parser.add_argument("--stream-data-size", type=int, default=None, help="Stream data size")
     parser.add_argument("--save-directory", type=str, default=None, help="Path to save videos.")
 
     args = parser.parse_args()
 
     vial_model_path = args.vial_model
     contents_model_path = args.contents_model
-    output_dir = args.save_directory
     config = HeinSightConfig()
-    config.DEFAULT_OUTPUT_DIR = output_dir or config.DEFAULT_OUTPUT_DIR
+    config.VISUALIZE = False
+
+    if args.config:
+        print(f"Loading configuration from: {args.config}")
+        config.load_from_file(args.config)
+
+        # Override with command line arguments
+        if args.save_plot_video is not None:
+            config.SAVE_PLOT_VIDEO = args.save_plot_video
+        if args.read_every is not None:
+            config.READ_EVERY = args.read_every
+        if args.update_every is not None:
+            config.UPDATE_EVERY = args.update_every
+        if args.cap_ratio is not None:
+            config.CAP_RATIO = args.cap_ratio
+        if args.default_fps is not None:
+            config.DEFAULT_FPS = args.default_fps
+        if args.stream_data_size is not None:
+            config.STREAM_DATA_SIZE = args.stream_data_size
+        if args.save_directory:
+            config.DEFAULT_OUTPUT_DIR = args.save_directory
 
     try:
         # If user does not provide a path, load the default model from the package

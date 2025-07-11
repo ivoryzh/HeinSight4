@@ -1,9 +1,14 @@
 import asyncio
 import datetime
+import json
 import os
 import sys
 import time
 from collections import defaultdict
+from pathlib import Path
+from typing import Dict, Any
+
+import yaml
 
 sys.path.append(os.path.dirname(__file__))
 
@@ -36,7 +41,7 @@ class HeinSightConfig:
     READ_EVERY = 1
     UPDATE_EVERY = 5
     LIQUID_CONTENT = ["Homo", "Hetero"]
-    CAP_RATIO = 0.3
+    CAP_RATIO = 0
     STATUS_RULE = 0.7
     NMS_RULES = {
         ("Homo", "Hetero"): 0.2,
@@ -53,6 +58,63 @@ class HeinSightConfig:
     DEFAULT_OUTPUT_NAME = 'output'
     STREAM_DATA_SIZE = 100
 
+
+    def load_from_file(self, config_path: str):
+        """Load configuration from JSON or YAML file."""
+        config_path = Path(config_path)
+
+        if not config_path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+        if config_path.suffix.lower() == '.json':
+            with open(config_path, 'r') as f:
+                config_data = json.load(f)
+        elif config_path.suffix.lower() in ['.yaml', '.yml']:
+            with open(config_path, 'r') as f:
+                config_data = yaml.safe_load(f)
+        else:
+            raise ValueError(f"Unsupported configuration file format: {config_path.suffix}")
+
+        self.update_from_dict(config_data)
+
+    def update_from_dict(self, config_dict: Dict[str, Any]):
+        """Update configuration from dictionary."""
+        # Map configuration keys to attributes
+        config_mapping = {
+            'num_rows': 'NUM_ROWS',
+            'visualize': 'VISUALIZE',
+            'include_bb': 'INCLUDE_BB',
+            'save_plot_video': 'SAVE_PLOT_VIDEO',
+            'read_every': 'READ_EVERY',
+            'update_every': 'UPDATE_EVERY',
+            'liquid_content': 'LIQUID_CONTENT',
+            'cap_ratio': 'CAP_RATIO',
+            'status_rule': 'STATUS_RULE',
+            'default_vial_location': 'DEFAULT_VIAL_LOCATION',
+            'default_vial_height': 'DEFAULT_VIAL_HEIGHT',
+            'default_fps': 'DEFAULT_FPS',
+            'default_resolution': 'DEFAULT_RESOLUTION',
+            'default_output_dir': 'DEFAULT_OUTPUT_DIR',
+            'default_output_name': 'DEFAULT_OUTPUT_NAME',
+            'stream_data_size': 'STREAM_DATA_SIZE',
+        }
+
+        for key, value in config_dict.items():
+            if key in config_mapping:
+                setattr(self, config_mapping[key], value)
+            elif key == 'nms_rules':
+                # Handle NMS rules which have tuple keys
+                nms_rules = {}
+                for rule_key, rule_value in value.items():
+                    if isinstance(rule_key, str):
+                        # Convert string representation to tuple
+                        tuple_key = eval(rule_key)  # e.g., "('Homo', 'Hetero')" -> ('Homo', 'Hetero')
+                        nms_rules[tuple_key] = rule_value
+                    else:
+                        nms_rules[rule_key] = rule_value
+                self.NMS_RULES = nms_rules
+            else:
+                print(f"Warning: Unknown configuration key: {key}")
 
 class HeinSight:
     """

@@ -831,7 +831,7 @@
                 if (!server) return;
 
                 try {
-                    const response = await fetch(`${server.url}/data`, {
+                    const response = await fetch(`${server.url}/docs`, {
                         method: 'GET',
                         timeout: 5000
                     });
