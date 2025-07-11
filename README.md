@@ -1,3 +1,9 @@
+![PyPI - Version](https://img.shields.io/pypi/v/heinsight)
+[![Dataset DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14630321.svg)](https://doi.org/10.5281/zenodo.14630321)
+[![YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube)](https://youtube.com/shorts/u9_i0PKJr4w)
+[![Hugging Face](https://img.shields.io/badge/Demo-HuggingFace-blue?logo=huggingface&logoColor=white)](https://huggingface.co/spaces/AccelerationConsortium/HeinSight-Demo)
+
+
 # HeinSight4.0 – A Computer Vision System for Dynamic Monitoring of Chemical Experiments
 HeinSight4.0 is a computer vision system designed for real-time monitoring of chemical behavior. It detects and classifies chemical phases (air, liquid, solid) within vessels, enabling automated observation of common experimental behaviors such as dissolution, melting, suspension, mixing, settling, and more. It also extracts additional visual cues like turbidity and color through image analysis.
 
