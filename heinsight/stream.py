@@ -78,7 +78,7 @@ async def start_monitoring(request: StartMonitoringRequest):
     fps = fps or 20
     if not is_monitoring:
         current_time = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        filename = heinsight.config.DEFAULT_OUTPUT_NAME or f"stream_{video_source}_{current_time}"
+        filename = f"stream_{video_source}_{current_time}"
         heinsight.start_monitoring(video_source, res=res, fps=fps,
                                    save_directory=heinsight.config.DEFAULT_OUTPUT_DIR, output_name=filename)
         is_monitoring = True
@@ -188,6 +188,22 @@ def main():
             config.STREAM_DATA_SIZE = args.stream_data_size
         if args.save_directory:
             config.DEFAULT_OUTPUT_DIR = args.save_directory
+
+    if args.save_directory is not None:
+        config.DEFAULT_OUTPUT_DIR = args.save_directory
+    if args.read_every is not None:
+        config.READ_EVERY = args.read_every
+    if args.update_every is not None:
+        config.UPDATE_EVERY = args.update_every
+    if args.cap_ratio is not None:
+        config.CAP_RATIO = args.cap_ratio
+    if args.default_fps is not None:
+        config.DEFAULT_FPS = args.default_fps
+    if args.stream_data_size is not None:
+        config.STREAM_DATA_SIZE = args.stream_data_size
+    if args.save_directory is not None:
+        config.DEFAULT_OUTPUT_DIR = args.save_directory
+
 
     try:
         # If user does not provide a path, load the default model from the package

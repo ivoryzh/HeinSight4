@@ -37,7 +37,7 @@ class HeinSightConfig:
     NUM_ROWS = -1
     VISUALIZE = True
     INCLUDE_BB = True
-    SAVE_PLOT_VIDEO = True
+    SAVE_PLOT_VIDEO = False
     READ_EVERY = 1
     UPDATE_EVERY = 5
     LIQUID_CONTENT = ["Homo", "Hetero"]
@@ -55,7 +55,7 @@ class HeinSightConfig:
     DEFAULT_RESOLUTION = (1920, 1080)
 
     DEFAULT_OUTPUT_DIR = './heinsight_output'
-    DEFAULT_OUTPUT_NAME = 'output'
+    DEFAULT_OUTPUT_NAME = "output"
     STREAM_DATA_SIZE = 100
 
 
@@ -473,12 +473,13 @@ class HeinSight:
         """
         # ensure proper naming
         self.clear_cache()
+        self.config.DEFAULT_RESOLUTION = res
 
         save_directory = save_directory or self.config.DEFAULT_OUTPUT_DIR
         output_name = output_name or self.config.DEFAULT_OUTPUT_NAME
         os.makedirs(save_directory, exist_ok=True)
         output_filename = os.path.join(save_directory, output_name)
-
+        print("Output filename: {}".format(output_filename))
         image_mode = isinstance(source, str) and source.lower().endswith(tuple(IMG_FORMATS))
         if image_mode:
 
@@ -503,7 +504,7 @@ class HeinSight:
         res = (800, 600) if self.config.SAVE_PLOT_VIDEO else res or self.config.DEFAULT_RESOLUTION
         video_writer = cv2.VideoWriter(f"{output_filename}.mkv", fourcc, fps, res)
         if realtime_cap:
-            raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
+            raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, self.config.DEFAULT_RESOLUTION)
 
         # video capturing and analysis
         frame_count = 0
@@ -583,6 +584,9 @@ class HeinSight:
 
 
         # 7. Handle cleanup and resource release on completion or interruption.
+        self.save_output(output_filename)
+        if realtime_cap:
+            raw_video_writer.release()
         video.release()
         video_writer.release()
         cv2.destroyAllWindows()
