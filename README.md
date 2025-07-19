@@ -1,4 +1,4 @@
-![PyPI - Version](https://img.shields.io/pypi/v/heinsight)
+[![PyPI - Version](https://img.shields.io/pypi/v/heinsight)](https://pypi.org/project/heinsight/)
 [![Dataset DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14630321.svg)](https://doi.org/10.5281/zenodo.14630321)
 [![YouTube](https://img.shields.io/badge/Watch%20on-YouTube-red?logo=youtube)](https://youtube.com/shorts/u9_i0PKJr4w)
 [![Hugging Face](https://img.shields.io/badge/Demo-HuggingFace-blue?logo=huggingface&logoColor=white)](https://huggingface.co/spaces/AccelerationConsortium/HeinSight-Demo)
@@ -12,6 +12,16 @@ HeinSight4.0 is a computer vision system designed for real-time monitoring of ch
 > `pip install heinsight`  
 >  
 > 👉 Try it out with the [HeinSight Demo app](https://huggingface.co/spaces/ivoryzhang/HeinSight-Demo).
+
+## Table of Contents
+- [How It Works?](#how-it-works)
+- [Datasets](#datasets)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Example GUI](#example-gui)
+- [Acknowledgements](#acknowledgements)
+
+
 ## How It Works?
 HeinSight4.0 employs a hierarchical detection approach by training two separate models **(Figure 1)**:
 - Vessel Detection Model: Identifies transparent laboratory equipment (e.g., reactors and vessels) and marks them as "vessels."
@@ -49,8 +59,17 @@ Dataset can be accessed at https://zenodo.org/records/14630321
 **Figure 2. Overview of diverse images in the training dataset used for the chemical detection model**
 
 ## Installation
-The script was developed on Window, and tested on Windows and a Raspberry Pi 5. Python versions should be flexible and align with the requirements of Ultralytics
-(Python>=3.8 environment with PyTorch>=1.8). 
+The script was developed on Windows and tested on a Raspberry Pi 5. Python versions should be flexible and align with the requirements of Ultralytics (Python>=3.8 environment with PyTorch>=1.8).
+
+### For Users
+
+You can install `heinsight` directly from PyPI:
+
+```bash
+pip install heinsight
+```
+### For Developers
+If you want to contribute to the project, you can clone the repository and install the dependencies from requirements.txt:
 ```commandline
 git clone https://gitlab.com/heingroup/heinsight4.0.git
 cd heinsight4.0
@@ -75,22 +94,31 @@ sudo apt install -y python3-picamera2
 ```
 
 ## Usage
-### Quickstart with [demo image](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/examples/demo.png) (image mode)
-Output: heinsigh_output/[output.png](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/examples/demo_output.png)
-```commandline
-python heinsight.py
+### Quickstart 
+Once installed, you can start the server with the heinsight-server command:
+
+```Bash
+heinsight-server
 ```
+and use --help for arguments doc
+```Bash
+heinsight-server --help
+```
+### Image mode usage with [demo image](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/examples/demo.png)
+```Python
+from heinsight.heinsight import HeinSight
+heinsight = HeinSight(vial_model_path=r"models/best_vessel.pt",
+                      contents_model_path=r"models/best_content.pt", )
+heinsight.run("path/to/img.png")
+```
+Output: heinsigh_output/[output.png](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/examples/demo_output.png)
+
 ### Video analysis 
 Output: 
 * **heinsigh_output/output.mkv**: analysis output
 * **heinsigh_output/output_per_phase.csv**: turbidity and color (overall and per phase) over time
 * **heinsigh_output/output_raw.csv**: turbidity per row over time
 ```python
-from heinsight import HeinSight
-heinsight = HeinSight(vial_model_path=r"models/best_vessel.pt",
-                      contents_model_path=r"models/best_content.pt", )
-
-# video analysis example
 heinsight.run("path/to/video.mp4")
 ```
 
@@ -107,34 +135,53 @@ heinsight.run("path/to/video.mp4",
               save_directory="new_folder",  # save to other path
               output_name="filename",       # save with other base filename
               fps=5,                        # capture frame rate, only available with webcam
-              res=(1920, 1080))             # capture resolution
+              res=(1920, 1080))             # capture resolution, only available with webcam
 ```
 
 ### Stream
 Stream with a FastAPI app, in [stream.py](https://gitlab.com/heingroup/heinsight4.0/-/blob/main/heinsight/stream.py)
 
-```python
-from heinsight import HeinSight
-
-...
-
-heinsight = HeinSight(vial_model_path=r"models/best_vessel.pt",
-                      contents_model_path=r"models/best_content.pt", )
-source = 0
-
-...
-```
 ```commandline
 pip install "fastapi[standard]"
 cd heinsight
 fastapi run stream.py
 ```
-### URLs
-* Docs:   [localhost:8000/docs](http://localhost:8000/docs)
-* Start monitoring:   [localhost:8000/start](http://localhost:8000/start) 
-* Stop monitoring:    [localhost:8000/stop](http://localhost:8000/stop) 
-* Frame output; get to stream video frames:    [localhost:8000/frame](http://localhost:8000/frame)
-* Data output:    [localhost:8000/data](http://localhost:8000/data)
+### API Endpoints
+* `GET /docs`: View the interactive API documentation (Swagger UI).
+* `POST /start`: Start the monitoring.
+  * Body:
+  ```json
+  {
+    "video_source": 0,
+    "frame_rate": 30,
+    "res": [1920, 1080]
+  }
+    ```
+* `GET /stop`: Stop the monitoring.
+
+* `GET /frame`: Get the latest processed video frame for streaming.
+
+* `GET /data`: Get the collected data.
+
+* `GET /current_status`: Get the most recent status and data point.
+
+## Integration
+For integration usage, we recommend to use heinsight_api
+```python
+from heinsight.heinsight_api import HeinsightAPI
+
+heinsight = HeinsightAPI("http://localhost:8000", source=0, res=(1920, 1080))
+
+# check is the sample homogeneous
+heinsight.homo()
+
+# check the volume
+heinsight.volume_1()
+```
+## Example GUI
+A sample HTML dashboard is provided in examples/sample_gui.html to demonstrate how to interact with the API.
+
+
 
 ## Acknowledgements
 Rama El-khawaldeh, Ivory Zhang, Ryan Corkery

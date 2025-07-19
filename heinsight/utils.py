@@ -54,5 +54,9 @@ def init_camera(source, res=(1920, 1080), fps=None, realtime_cap=True):
             video.set(cv2.CAP_PROP_FPS, fps)
             video.set(cv2.CAP_PROP_FRAME_WIDTH, res[0])
             video.set(cv2.CAP_PROP_FRAME_HEIGHT, res[1])
+        else:
+            width = video.get(cv2.CAP_PROP_FRAME_WIDTH)
+            height = video.get(cv2.CAP_PROP_FRAME_HEIGHT)
+            res = (int(width), int(height))
         fps = int(video.get(cv2.CAP_PROP_FPS))
         return video, res, fps

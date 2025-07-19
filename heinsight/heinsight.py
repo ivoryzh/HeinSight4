@@ -473,7 +473,7 @@ class HeinSight:
         """
         # ensure proper naming
         self.clear_cache()
-        self.config.DEFAULT_RESOLUTION = res
+
 
         save_directory = save_directory or self.config.DEFAULT_OUTPUT_DIR
         output_name = output_name or self.config.DEFAULT_OUTPUT_NAME
@@ -501,10 +501,10 @@ class HeinSight:
 
         # 2. Setup video writers for saving outputs
         fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-        res = (800, 600) if self.config.SAVE_PLOT_VIDEO else res or self.config.DEFAULT_RESOLUTION
-        video_writer = cv2.VideoWriter(f"{output_filename}.mkv", fourcc, fps, res)
+        output_res = (800, 600) if self.config.SAVE_PLOT_VIDEO else res
+        video_writer = cv2.VideoWriter(f"{output_filename}.mkv", fourcc, fps, output_res)
         if realtime_cap:
-            raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, self.config.DEFAULT_RESOLUTION)
+            raw_video_writer = cv2.VideoWriter(f"{output_filename}_raw.mkv", fourcc, 30, res)
 
         # video capturing and analysis
         frame_count = 0
