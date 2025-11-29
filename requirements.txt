@@ -1,4 +1,5 @@
 Ultralytics
+pandas
 
 # stream option
 # "fastapi[standard]"

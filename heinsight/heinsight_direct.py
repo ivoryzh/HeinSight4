@@ -154,9 +154,3 @@ class HeinsightAPI:
         return self.heinsight.status.get(hs_class, False)
 
 
-if __name__ == "__main__":
-    # Example usage
-    api = HeinsightAPI()
-    print("Starting Heinsight Direct API...")
-    api.start(r"/Users/ivoryzhang/Downloads/2023-07-11 RE_MSC_011(IPA_aceto_high).mkv") # Uncomment to test with actual camera/source
-    print(api)

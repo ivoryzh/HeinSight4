@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "heinsight"
-version = "0.4.5"
+version = "0.4.6"
 description = "A Computer Vision System for Dynamic Monitoring of Chemical Experiments"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -12,10 +12,9 @@ requires-python = ">=3.8"
 # Default dependencies are now the full server installation.
 # pip install heinsight
 dependencies = [
-    "requests",
+    "pandas",
     "ultralytics",
-    "fastapi",
-    "uvicorn"
+
 ]
 
 [project.scripts]
@@ -25,7 +24,9 @@ heinsight-server = "heinsight.stream:main"
 # pip install heinsight[api]
 [project.optional-dependencies]
 api = [
-    "requests"
+    "requests",
+    "fastapi",
+    "uvicorn"
 ]
 
 [tool.setuptools.packages.find]
