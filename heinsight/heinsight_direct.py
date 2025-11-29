@@ -56,24 +56,23 @@ class HeinsightAPI:
         :param source: Optional video source override.
         :param res: Optional resolution override.
         """
-        if self.running:
-            return {"status": "already running"}
-        
+        # if self.running:
+        #     return {"status": "already running"}
         if source is not None:
             self.source = source
-        if res is not None:
+        if res is not None and len(res) == 2:
             self.res = res
             
-        self.running = True
+        # self.running = True
         # start_monitoring runs in a separate thread
         self.heinsight.start_monitoring(self.source, fps=self.fps, res=self.res)
-        return {"status": "started"}
+        # return {"status": "started"}
 
     def stop(self):
         """Stops the monitoring process."""
-        self.running = False
+        # self.running = False
         self.heinsight.stop_monitor()
-        return {"status": "stopped"}
+        # return {"status": "stopped"}
 
     def data(self):
         """Returns the accumulated data."""
@@ -154,3 +153,9 @@ class HeinsightAPI:
         return self.heinsight.status.get(hs_class, False)
 
 
+if __name__ == "__main__":
+
+    heinsight = HeinsightAPI()
+
+    # import ivoryos
+    # ivoryos.run(__name__)
