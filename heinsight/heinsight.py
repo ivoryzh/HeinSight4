@@ -204,7 +204,8 @@ class HeinSight:
         :return: cropped and resized vial frame
         """
         x1, y1, x2, y2 = vial_location
-        y1 = int(self.config.CAP_RATIO * (y2 - y1)) + y1
+        y1 = int(self.config.CAP_RATIO * (y2 - y1)) + y1 # crop top
+        y2 = y2 - int(self.config.CAP_RATIO * (y2 - y1)) # crops bottom
         cropped_image = image[y1:y2, x1:x2]
         return cropped_image
 
@@ -319,8 +320,10 @@ class HeinSight:
             class_name = class_names[class_id]
             color = self.color_palette.get(class_name, (255, 255, 255))
             if on_raw and self.vial_location:
-                x1, y1 = x1 + self.vial_location[0], y1 + self.vial_location[1] + self.cap_rows
-                x2, y2 = x2 + self.vial_location[0], y2 + self.vial_location[1] + self.cap_rows
+                x1, y1 = x1 + self.vial_location[0], y1 + self.vial_location[1] # crop bottom
+                x2, y2 = x2 + self.vial_location[0], y2 + self.vial_location[1]   # crop bottom              
+                # x1, y1 = x1 + self.vial_location[0], y1 + self.vial_location[1] + self.cap_rows
+                # x2, y2 = x2 + self.vial_location[0], y2 + self.vial_location[1] + self.cap_rows
             cv2.rectangle(output_image, (x1, y1), (x2, y2), color, thickness)
             (text_width, text_height), baseline = cv2.getTextSize(class_name, cv2.FONT_HERSHEY_SIMPLEX, font_scale,
                                                                   text_thickness)
